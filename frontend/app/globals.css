@@ -71,29 +71,32 @@
   --animate-vc-bounce: vc-bounce 1.6s ease-in-out 3;
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-}
+/* In a layer so Tailwind utilities (e.g. text-ink-3 on a link) can override it. */
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+  }
 
-body {
-  color: var(--ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
+  body {
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-a:hover {
-  text-decoration: underline;
-}
-button {
-  font: inherit;
-  cursor: pointer;
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
 }
 
 @keyframes vc-in {
