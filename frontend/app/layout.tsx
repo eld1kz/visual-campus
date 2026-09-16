@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { ChatDrawer } from "@/components/chat/ChatDrawer";
+import { GuideFab } from "@/components/guide/GuideFab";
+import { GuideProvider } from "@/components/guide/GuideProvider";
 import { Header } from "@/components/layout/Header";
 import { PreferencesProvider, THEME_KEY } from "@/components/layout/PreferencesProvider";
 import "./globals.css";
@@ -37,8 +40,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-screen bg-bg text-ink">
         <PreferencesProvider>
-          <Header />
-          {children}
+          <GuideProvider>
+            <Header />
+            {children}
+            <GuideFab />
+            <ChatDrawer />
+          </GuideProvider>
         </PreferencesProvider>
       </body>
     </html>

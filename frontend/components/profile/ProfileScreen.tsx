@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
+import { GuideGreeting } from "@/components/guide/GuideGreeting";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { CampusMapSection } from "@/components/map/CampusMapSection";
 import { PhotoDetail } from "@/components/photos/PhotoDetail";
@@ -60,7 +61,9 @@ function ProfileView({ params }: { params: URLSearchParams }) {
         </WarningBanner>
       )}
 
-      <ProfileHeader university={PROFILE.university} generatedInMs={PROFILE.generated_in_ms} stats={PROFILE_STATS} />
+      <ProfileHeader university={PROFILE.university} generatedInMs={PROFILE.generated_in_ms} stats={PROFILE_STATS}
+        aside={<GuideGreeting universityName={PROFILE.university.name} />}
+      />
       <AboutSection profile={PROFILE} onOpenMap={() => setSection("map")} />
       <SectionTabs active={section} onChange={setSection} />
 
