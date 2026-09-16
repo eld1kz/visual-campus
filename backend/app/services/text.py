@@ -43,6 +43,9 @@ def similarity(query: str, name: str) -> float:
             coverage = len(q_tokens) / len(n_tokens)
             # Never reach the "exact" band just by containment: "Cambridge" must stay ambiguous.
             score = max(score, 0.6 + 0.28 * min(coverage, 1.0))
+        elif matched / len(q_tokens) < 0.5:
+            # Sharing a generic word ("Institute") is not a match.
+            score = min(score, 0.5)
     return round(score, 4)
 
 
