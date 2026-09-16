@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfbfa; --surface:#ffffff; --surface-2:#f4f4f2;
+  --ink:#17181a; --ink-2:#5c6066; --ink-3:#8b9098;
+  --line:#e6e5e2; --line-2:#d8d7d3;
+  --accent:oklch(0.55 0.14 265); --accent-soft:oklch(0.95 0.02 265);
+  --ok:oklch(0.52 0.11 152); --ok-soft:oklch(0.95 0.03 152);
+  --warn:oklch(0.58 0.11 75); --warn-soft:oklch(0.95 0.04 75);
+  --mute:#8b9098; --mute-soft:#f0efec;
+  --ph1:#eceae5; --ph2:#e4e2dc;
+  --shadow:0 1px 2px rgba(20,20,20,.05), 0 8px 24px rgba(20,20,20,.06);
+}
+[data-theme="dark"]{
+  --bg:#101113; --surface:#17181b; --surface-2:#1e2024;
+  --ink:#f1f1ef; --ink-2:#a0a4ab; --ink-3:#71757c;
+  --line:#26282c; --line-2:#32353a;
+  --accent:oklch(0.7 0.13 265); --accent-soft:oklch(0.28 0.05 265);
+  --ok:oklch(0.72 0.12 152); --ok-soft:oklch(0.26 0.05 152);
+  --warn:oklch(0.78 0.12 75); --warn-soft:oklch(0.28 0.05 75);
+  --mute:#8b9098; --mute-soft:#222428;
+  --ph1:#23262b; --ph2:#1d2024;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+html,body{margin:0;padding:0;background:var(--bg);}
+*{box-sizing:border-box;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+button{font:inherit;}
+@keyframes vc-spin{to{transform:rotate(360deg)}}
+@keyframes vc-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes vc-pulse{0%,100%{opacity:.35}50%{opacity:.9}}
+@keyframes vc-bounce{0%,100%{transform:translateY(0)}45%{transform:translateY(-9px)}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--bg);color:var(--ink);font-family:'Instrument Sans',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+
+  <header style="position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px 26px;background:var(--bg)">
+    <div style="display:flex;align-items:center;gap:9px">
+      <div style="width:15px;height:15px;border-radius:50%;background:var(--accent)"></div>
+      <span style="font-weight:500;letter-spacing:-0.015em">Visual Campus</span>
+    </div>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.09em;color:var(--ink-3)">DEMO DATA</span>
+
+    <div style="display:flex;gap:4px;margin-left:auto;flex-wrap:wrap">
+      <sc-for list="{{ screenNav }}" as="nav" hint-placeholder-count="5">
+        <button onClick="{{ nav.onClick }}" style="{{ nav.style }}">{{ nav.label }}</button>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;gap:2px;align-items:center">
+      <button onClick="{{ setRu }}" style="{{ ruStyle }}">RU</button>
+      <button onClick="{{ setEn }}" style="{{ enStyle }}">EN</button>
+      <button onClick="{{ toggleTheme }}" style="padding:6px 12px;border:none;background:transparent;color:var(--ink-3);border-radius:999px;cursor:pointer;font-size:12.5px" style-hover="color:var(--ink)">{{ themeLabel }}</button>
+    </div>
+  </header>
+
+  <!-- ============ 1. SEARCH ============ -->
+  <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:720px;margin:0 auto;padding:16vh 22px 100px">
+      <h1 style="font-size:clamp(34px,5vw,52px);line-height:1.05;letter-spacing:-0.035em;font-weight:500;margin:0 0 18px;text-wrap:pretty">{{ t.searchTitle }}</h1>
+      <p style="margin:0 0 40px;color:var(--ink-2);font-size:16.5px;line-height:1.55;max-width:48ch">{{ t.searchSub }}</p>
+
+      <div style="position:relative">
+        <div style="display:flex;gap:8px">
+          <input value="{{ query }}" onChange="{{ onQuery }}" onKeyDown="{{ onQueryKey }}" placeholder="{{ t.inputPh }}" style="flex:1;min-width:0;padding:17px 20px;font-size:17px;font-family:inherit;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:999px;outline:none" style-focus="border-color:var(--accent);background:var(--surface)" />
+          <button onClick="{{ submit }}" style="padding:17px 26px;font-size:15px;font-weight:500;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer;white-space:nowrap">{{ t.searchBtn }}</button>
+        </div>
+
+        <sc-if value="{{ showSuggest }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;right:0;top:calc(100% + 8px);background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;z-index:10">
+            <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="3">
+              <button onClick="{{ s.onClick }}" style="display:flex;width:100%;align-items:center;gap:12px;padding:12px 16px;background:transparent;border:none;border-bottom:1px solid var(--line);cursor:pointer;text-align:left;color:var(--ink)" style-hover="background:var(--surface-2)">
+                <span style="font-size:18px">{{ s.flag }}</span>
+                <span style="font-size:14px;font-weight:500">{{ s.name }}</span>
+                <span style="font-size:13px;color:var(--ink-3);margin-left:auto">{{ s.place }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:18px">
+        <span style="font-size:12px;color:var(--ink-3);font-family:'JetBrains Mono',monospace;letter-spacing:.04em">{{ t.examples }}</span>
+        <sc-for list="{{ examples }}" as="ex" hint-placeholder-count="4">
+          <button onClick="{{ ex.onClick }}" style="padding:7px 14px;font-size:13px;background:var(--surface-2);border:none;border-radius:999px;color:var(--ink-2);cursor:pointer" style-hover="color:var(--accent)">{{ ex.name }}</button>
+        </sc-for>
+      </div>
+
+      <div style="margin-top:56px;color:var(--ink-3);font-size:13px;line-height:1.65;max-width:58ch">{{ t.note }}</div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 2. DISAMBIGUATION ============ -->
+  <sc-if value="{{ isDisamb }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:900px;margin:0 auto;padding:56px 22px 80px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-3);margin-bottom:10px">{{ queryEcho }}</div>
+      <h2 style="font-size:28px;letter-spacing:-0.02em;font-weight:600;margin:0 0 8px">{{ t.disambTitle }}</h2>
+      <p style="margin:0 0 26px;color:var(--ink-2);font-size:15px">{{ t.disambSub }}</p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:14px">
+        <sc-for list="{{ candidates }}" as="c" hint-placeholder-count="3">
+          <div style="display:flex;gap:14px;padding:16px;background:var(--surface-2);border-radius:18px">
+            <div style="flex:0 0 96px;height:96px;border-radius:14px;background:repeating-linear-gradient(0deg,var(--ph1) 0 11px,var(--ph2) 11px 12px),repeating-linear-gradient(90deg,var(--ph1) 0 11px,var(--ph2) 11px 12px);display:flex;align-items:center;justify-content:center">
+              <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)"></div>
+            </div>
+            <div style="min-width:0;display:flex;flex-direction:column;gap:5px">
+              <div style="font-size:15px;font-weight:600;line-height:1.25">{{ c.name }}</div>
+              <div style="font-size:13px;color:var(--ink-2)">{{ c.flag }} {{ c.place }}</div>
+              <div style="font-size:12px;color:var(--ink-3);line-height:1.4"><span style="font-family:'JetBrains Mono',monospace">{{ t.alsoKnown }}:</span> {{ c.aliases }}</div>
+              <button onClick="{{ c.onClick }}" style="margin-top:auto;align-self:flex-start;padding:8px 16px;font-size:13px;font-weight:500;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ t.choose }}</button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <button onClick="{{ goNotFound }}" style="margin-top:22px;padding:8px 0;background:none;border:none;color:var(--ink-3);font-size:13px;cursor:pointer;text-decoration:underline">{{ t.noneOfThese }}</button>
+    </div>
+  </sc-if>
+
+  <!-- ============ 2b. NOT FOUND ============ -->
+  <sc-if value="{{ isNotFound }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:620px;margin:0 auto;padding:12vh 22px 80px">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--surface-2);color:var(--ink-3);display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:18px">?</div>
+      <h2 style="font-size:26px;font-weight:600;letter-spacing:-0.02em;margin:0 0 10px">{{ t.notFoundTitle }}</h2>
+      <p style="margin:0 0 20px;color:var(--ink-2);font-size:15px;line-height:1.55">{{ t.notFoundBody }}</p>
+      <ul style="margin:0 0 26px;padding-left:18px;color:var(--ink-2);font-size:14px;line-height:1.9">
+        <sc-for list="{{ t.notFoundTips }}" as="tip" hint-placeholder-count="3">
+          <li>{{ tip }}</li>
+        </sc-for>
+      </ul>
+      <div style="display:flex;gap:8px">
+        <input value="{{ query }}" onChange="{{ onQuery }}" onKeyDown="{{ onQueryKey }}" placeholder="{{ t.inputPh }}" style="flex:1;min-width:0;padding:14px 18px;font-size:15px;font-family:inherit;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:999px;outline:none" style-focus="border-color:var(--accent)" />
+        <button onClick="{{ submit }}" style="padding:14px 22px;font-size:14px;font-weight:500;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ t.tryAgain }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 3. LOADING / STREAMING ============ -->
+  <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1100px;margin:0 auto;padding:44px 22px 80px">
+      <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:26px">
+        <h2 style="font-size:24px;font-weight:600;letter-spacing:-0.02em;margin:0">{{ t.loadingTitle }}</h2>
+        <span style="font-size:15px;color:var(--ink-2)">{{ uni.name }}</span>
+        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums">{{ elapsed }}</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:26px;margin-bottom:34px">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--ink-3);margin-bottom:12px">{{ t.stepsTitle }}</div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ steps }}" as="st" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+                <span style="{{ st.dotStyle }}">{{ st.icon }}</span>
+                <span style="{{ st.labelStyle }}">{{ st.label }}</span>
+                <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3)">{{ st.note }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--ink-3);margin-bottom:12px">{{ t.sourcesTitle }}</div>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ sources }}" as="src" hint-placeholder-count="6">
+              <div style="{{ src.chipStyle }}">
+                <span>{{ src.name }}</span>
+                <span style="{{ src.stateStyle }}">{{ src.stateLabel }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--ink-3);margin-bottom:12px">{{ t.photosAppearing }}</div>
+      <div style="columns:4 200px;column-gap:12px">
+        <sc-for list="{{ streamPhotos }}" as="p" hint-placeholder-count="6">
+          <div style="break-inside:avoid;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--line);animation:vc-in .35s ease both">
+            <div style="{{ p.phStyle }}"></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 4. PROFILE ============ -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1240px;margin:0 auto;padding:30px 22px 90px">
+
+      <sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:22px;background:var(--warn-soft);border-radius:999px;color:var(--ink);font-size:13px">
+          <span style="color:var(--warn)">⚠</span>
+          <span>{{ t.bannerFlickr }}</span>
+          <button onClick="{{ dismissBanner }}" style="margin-left:auto;background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:16px;line-height:1">×</button>
+        </div>
+      </sc-if>
+
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;padding-bottom:22px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0;flex:1 1 380px">
+          <h1 style="font-size:clamp(28px,3.4vw,40px);font-weight:500;letter-spacing:-0.035em;margin:0 0 10px;line-height:1.05">{{ uni.name }}</h1>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:14px;color:var(--ink-2)">
+            <span>{{ uni.flag }} {{ uni.place }}</span>
+            <a href="{{ uni.website }}" target="_blank">{{ uni.websiteLabel }}</a>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-3)">{{ genInLabel }}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink-3)">
+          <sc-for list="{{ summaryStats }}" as="s" hint-placeholder-count="4">
+            <span><span style="color:{{ s.color }}">{{ s.value }}</span> {{ s.label }}</span>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ guideVisible }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:flex-end;gap:10px;flex:0 0 auto">
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:210px">
+              <div onClick="{{ openChat }}" style="position:relative;padding:11px 15px;border:none;border-radius:18px 18px 4px 18px;font-size:12.5px;line-height:1.45;color:var(--ink);cursor:pointer;background:var(--surface-2)">{{ greetBubble }}</div>
+              <button onClick="{{ hideGuide }}" style="background:none;border:none;padding:0;font-size:11.5px;color:var(--ink-3);cursor:pointer;text-decoration:underline">{{ g.hide }}</button>
+            </div>
+            <div onClick="{{ openChat }}" style="cursor:pointer">
+              <dc-import name="Mascot" state="hello" top="{{ outfitTop }}" head="{{ outfitHead }}" accessory="{{ outfitAcc }}" primary="{{ brandPrimary }}" secondary="{{ brandSecondary }}" label="{{ brandLabel }}" height="{{ 140 }}" hint-size="96px,140px"></dc-import>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ guideHidden }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ showGuide }}" style="background:none;border:none;padding:0;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline">{{ g.show }}</button>
+        </sc-if>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:28px;padding:30px 0 34px">
+        <div>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:var(--ink);max-width:64ch;text-wrap:pretty">{{ summaryText }}<sc-for list="{{ citations }}" as="c" hint-placeholder-count="2"><a href="{{ c.url }}" target="_blank" style="font-size:12px;vertical-align:super;margin-left:1px">[{{ c.n }}]</a></sc-for></p>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <sc-for list="{{ citations }}" as="c" hint-placeholder-count="2">
+              <div style="font-size:12px;color:var(--ink-3)">[{{ c.n }}] <a href="{{ c.url }}" target="_blank">{{ c.title }}</a></div>
+            </sc-for>
+          </div>
+        </div>
+        <div onClick="{{ openMapSection }}" style="cursor:pointer">
+          <div style="height:150px;position:relative;border-radius:18px;overflow:hidden;background:repeating-linear-gradient(0deg,var(--ph1) 0 19px,var(--ph2) 19px 20px),repeating-linear-gradient(90deg,var(--ph1) 0 19px,var(--ph2) 19px 20px);display:flex;align-items:center;justify-content:center">
+            <div style="width:110px;height:72px;border:1.5px dashed var(--accent);border-radius:6px;background:var(--accent-soft);opacity:.85"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:12px;padding-top:9px;font-size:12.5px;color:var(--ink-3)">
+            <span>{{ t.distance }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:var(--ink-2)">{{ uni.distanceLabel }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:2px;margin-bottom:16px">
+        <sc-for list="{{ sectionTabs }}" as="sec" hint-placeholder-count="2">
+          <button onClick="{{ sec.onClick }}" style="{{ sec.style }}">{{ sec.label }}</button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ isPhotosSection }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:0;margin-bottom:16px">
+        <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="6">
+          <button onClick="{{ tab.onClick }}" style="{{ tab.style }}">{{ tab.label }} <span style="{{ tab.countStyle }}">{{ tab.count }}</span></button>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px">
+        <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="4">
+          <button onClick="{{ chip.onClick }}" style="{{ chip.style }}">{{ chip.label }}</button>
+        </sc-for>
+        <div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--ink-3)">{{ t.sortBy }}</span>
+          <div style="display:flex;gap:2px">
+            <button onClick="{{ sortByConf }}" style="{{ sortConfStyle }}">{{ t.sortConf }}</button>
+            <button onClick="{{ sortByDate }}" style="{{ sortDateStyle }}">{{ t.sortDate }}</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2);cursor:pointer;padding:6px 12px;border-radius:999px;background:var(--surface-2)">
+            <input type="checkbox" checked="{{ showUnconfirmed }}" onChange="{{ toggleUnconfirmed }}" style="accent-color:var(--accent);margin:0" />
+            <span>{{ t.tierToggle }}</span>
+          </label>
+        </div>
+      </div>
+
+      <sc-if value="{{ showUnconfirmed }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:9px;align-items:center;padding:11px 15px;margin-bottom:16px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font-size:12.5px">
+          <span style="color:var(--mute)">?</span><span>{{ t.tierWarn }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isEmptyCategory }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:38px;border-radius:20px;background:var(--surface-2)">
+          <div style="font-size:16px;font-weight:500;margin-bottom:8px">{{ t.emptyDorms }}</div>
+          <div style="font-size:13px;color:var(--ink-3);margin-bottom:12px">{{ t.emptyWhere }}</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            <sc-for list="{{ searchedIn }}" as="s" hint-placeholder-count="5">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 11px;border-radius:999px;background:var(--surface);color:var(--ink-2)">{{ s }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="columns:4 250px;column-gap:14px">
+        <sc-for list="{{ photos }}" as="p" hint-placeholder-count="9">
+          <div onClick="{{ p.onClick }}" style="break-inside:avoid;margin-bottom:20px;cursor:pointer;animation:vc-in .3s ease both">
+            <div style="{{ p.phStyle }}">
+              <div style="{{ p.badgeStyle }}"><span>{{ p.tierIcon }}</span><span>{{ p.tierLabel }} {{ p.confidence }}%</span></div>
+              <span style="position:absolute;bottom:8px;left:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-3)">{{ p.placeholder }}</span>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:space-between;padding-top:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-3)">
+              <a href="{{ p.source_url }}" target="_blank">{{ p.source_domain }}</a>
+              <span>{{ p.published_at }}</span>
+            </div>
+            <div style="padding-top:3px;font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ p.licenseColor }}">{{ p.licenseLabel }}</div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- ---------- CAMPUS MAP ---------- -->
+      <sc-if value="{{ isMapSection }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+          <div style="display:flex;gap:2px">
+            <sc-for list="{{ modeTabs }}" as="md" hint-placeholder-count="3">
+              <button onClick="{{ md.onClick }}" style="{{ md.style }}">{{ md.label }}</button>
+            </sc-for>
+          </div>
+          <input value="{{ buildingQuery }}" onChange="{{ onBuildingQuery }}" placeholder="{{ m.findBuilding }}" style="flex:1 1 200px;min-width:0;padding:9px 14px;font-size:13px;font-family:inherit;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:999px;outline:none" style-focus="border-color:var(--accent);background:var(--surface)" />
+          <button onClick="{{ recenter }}" style="padding:9px 14px;font-size:12.5px;background:var(--surface-2);border:none;border-radius:999px;color:var(--ink-2);cursor:pointer" style-hover="color:var(--accent)">{{ m.recenter }}</button>
+        </div>
+
+        <sc-if value="{{ panoBanner }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 15px;margin-bottom:12px;border-radius:999px;background:var(--surface-2);font-size:12.5px;color:var(--ink-2)">
+            <span style="color:var(--warn)">⚠</span><span>{{ m.panoBanner }}</span>
+            <button onClick="{{ dismissPanoBanner }}" style="margin-left:auto;background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1">×</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ no3dNote }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:10px 15px;margin-bottom:12px;border-radius:999px;background:var(--surface-2);font-size:12.5px;color:var(--ink-2)">{{ no3dNote }}</div>
+        </sc-if>
+
+        <sc-if value="{{ showLayers }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
+            <sc-for list="{{ layerChips }}" as="lc" hint-placeholder-count="7">
+              <button onClick="{{ lc.onClick }}" style="{{ lc.style }}"><span style="{{ lc.dotStyle }}"></span>{{ lc.label }}</button>
+            </sc-for>
+            <span style="width:1px;background:var(--line);margin:2px 4px"></span>
+            <button onClick="{{ pinsChip.onClick }}" style="{{ pinsChip.style }}">{{ pinsChip.label }}</button>
+            <button onClick="{{ unconfChip.onClick }}" style="{{ unconfChip.style }}">{{ unconfChip.label }}</button>
+            <button onClick="{{ panoChip.onClick }}" style="{{ panoChip.style }}">{{ panoChip.label }}</button>
+            <button onClick="{{ transitChip.onClick }}" style="{{ transitChip.style }}">{{ transitChip.label }}</button>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+          <div style="flex:1 1 560px;min-width:0">
+
+            <sc-if value="{{ mapReady }}" hint-placeholder-val="{{ false }}">
+              <!-- 2D -->
+              <sc-if value="{{ is2d }}" hint-placeholder-val="{{ true }}">
+                <div style="position:relative;height:clamp(360px,56vh,560px);border-radius:20px;overflow:hidden;background:var(--surface-2)">
+                  <div style="{{ surfaceStyle }}">
+                    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent 0 43px,var(--line) 43px 44px),repeating-linear-gradient(90deg,transparent 0 43px,var(--line) 43px 44px)"></div>
+                    <sc-if value="{{ hasPolygon }}" hint-placeholder-val="{{ true }}">
+                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+                        <polygon points="{{ campusPoints }}" fill="var(--accent)" fill-opacity="0.09" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"></polygon>
+                      </svg>
+                    </sc-if>
+                    <sc-for list="{{ panoPaths }}" as="pp" hint-placeholder-count="3">
+                      <div style="{{ pp.style }}"></div>
+                    </sc-for>
+                    <sc-for list="{{ buildings }}" as="b" hint-placeholder-count="12">
+                      <div onClick="{{ b.onClick }}" style="{{ b.boxStyle }}" title="{{ b.name }}"></div>
+                    </sc-for>
+                    <sc-for list="{{ buildings }}" as="b" hint-placeholder-count="12">
+                      <div style="{{ b.labelStyle }}">{{ b.name }}</div>
+                    </sc-for>
+                    <sc-for list="{{ transit }}" as="tr" hint-placeholder-count="3">
+                      <div style="{{ tr.style }}" title="{{ tr.name }}">{{ tr.label }}</div>
+                    </sc-for>
+                    <div style="{{ cityLineStyle }}"></div>
+                    <div style="{{ cityMarkerStyle }}">
+                      <div style="width:9px;height:9px;border-radius:50%;background:var(--ink-2)"></div>
+                      <div style="display:flex;flex-direction:column;gap:1px">
+                        <span style="font-size:11px;color:var(--ink-2)">{{ cityName }}</span>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-3)">{{ cityLabel }}</span>
+                      </div>
+                    </div>
+                    <div style="{{ centerDotStyle }}"></div>
+                    <sc-for list="{{ pinView }}" as="pn" hint-placeholder-count="6">
+                      <div onClick="{{ pn.onClick }}" style="{{ pn.pinStyle }}">{{ pn.clusterCount }}</div>
+                    </sc-for>
+                  </div>
+
+                  <div style="position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:5px">
+                    <button onClick="{{ zoomIn }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">+</button>
+                    <button onClick="{{ zoomOut }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">−</button>
+                  </div>
+                  <div style="position:absolute;left:12px;bottom:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-3)">© OpenStreetMap contributors · DEMO DATA</div>
+                </div>
+              </sc-if>
+
+              <!-- 3D -->
+              <sc-if value="{{ is3d }}" hint-placeholder-val="{{ false }}">
+                <div style="position:relative;height:clamp(360px,56vh,560px);border-radius:20px;overflow:hidden;background:var(--surface-2);perspective:1100px">
+                  <div style="{{ surface3dStyle }}">
+                    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent 0 43px,var(--line) 43px 44px),repeating-linear-gradient(90deg,transparent 0 43px,var(--line) 43px 44px)"></div>
+                    <sc-if value="{{ hasPolygon }}" hint-placeholder-val="{{ true }}">
+                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+                        <polygon points="{{ campusPoints }}" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"></polygon>
+                      </svg>
+                    </sc-if>
+                    <sc-for list="{{ panoPaths }}" as="pp" hint-placeholder-count="3">
+                      <div style="{{ pp.style }}"></div>
+                    </sc-for>
+                    <sc-for list="{{ buildings }}" as="b" hint-placeholder-count="12">
+                      <sc-for list="{{ b.layers }}" as="ly" hint-placeholder-count="4">
+                        <div onClick="{{ b.onClick }}" style="{{ ly.style }}"></div>
+                      </sc-for>
+                    </sc-for>
+                    <sc-for list="{{ pinView }}" as="pn" hint-placeholder-count="6">
+                      <div style="{{ pn.coneStyle }}"></div>
+                    </sc-for>
+                    <sc-for list="{{ pinView }}" as="pn" hint-placeholder-count="6">
+                      <div style="{{ pn.flagStyle }}"></div>
+                    </sc-for>
+                    <sc-for list="{{ pinView }}" as="pn" hint-placeholder-count="6">
+                      <div onClick="{{ pn.onClick }}" style="{{ pn.flagHeadStyle }}"></div>
+                    </sc-for>
+                  </div>
+
+                  <div style="position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+                    <div style="display:flex;gap:5px">
+                      <button onClick="{{ rotateL }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">↺</button>
+                      <div style="width:32px;height:32px;border:none;background:var(--surface);border-radius:999px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center"><span style="{{ compassStyle }}">N</span></div>
+                      <button onClick="{{ rotateR }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">↻</button>
+                    </div>
+                    <div style="display:flex;gap:5px">
+                      <button onClick="{{ tiltLess }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">▁</button>
+                      <button onClick="{{ tiltMore }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">◢</button>
+                      <button onClick="{{ zoomOut }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">−</button>
+                      <button onClick="{{ zoomIn }}" style="width:32px;height:32px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">+</button>
+                    </div>
+                    <button onClick="{{ toggleFlyover }}" style="padding:8px 14px;font-size:12px;border:none;background:var(--surface);color:var(--ink-2);border-radius:999px;cursor:pointer;box-shadow:var(--shadow)">{{ flyoverLabel }}</button>
+                  </div>
+                </div>
+                <div style="padding-top:9px;font-size:11.5px;color:var(--ink-3);line-height:1.5;max-width:60ch">{{ note3d }}</div>
+              </sc-if>
+
+              <!-- WALK -->
+              <sc-if value="{{ isWalk }}" hint-placeholder-val="{{ false }}">
+                <sc-if value="{{ panoAvailable }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:relative;height:clamp(360px,60vh,600px);border-radius:20px;overflow:hidden;background:var(--surface-2)">
+                    <div onMouseMove="{{ onPanoDrag }}" style="{{ panoStyle }}">
+                      <div style="{{ panoGridStyle }}"></div>
+                      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-right:clamp(150px,28%,220px);pointer-events:none">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink-3);text-align:center;padding:0 24px">Панорама 360° · {{ m.walkHint }}</span>
+                      </div>
+                    </div>
+
+                    <div style="position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:8px;padding:7px 13px;background:var(--surface);border:none;border-radius:999px;font-size:12px;color:var(--ink-2);box-shadow:var(--shadow)">{{ panoAttr }}</div>
+                    <button onClick="{{ exitWalk }}" style="position:absolute;top:12px;right:12px;padding:8px 14px;font-size:12.5px;background:var(--surface);border:none;border-radius:999px;color:var(--ink-2);cursor:pointer;box-shadow:var(--shadow)">{{ m.exitWalk }}</button>
+
+                    <div style="position:absolute;left:18px;bottom:18px;display:flex;gap:10px;align-items:center">
+                      <button onClick="{{ prevPano }}" style="width:40px;height:40px;border-radius:50%;border:none;background:var(--surface);color:var(--ink-2);font-size:15px;cursor:pointer;box-shadow:var(--shadow)">←</button>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3)">{{ panoPoint }} · {{ panoYawLabel }}</span>
+                      <button onClick="{{ nextPano }}" style="width:40px;height:40px;border-radius:50%;border:none;background:var(--surface);color:var(--ink-2);font-size:15px;cursor:pointer;box-shadow:var(--shadow)">→</button>
+                    </div>
+
+                    <div style="position:absolute;right:12px;bottom:12px;width:clamp(132px,26%,200px);aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2)">
+                      <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent 0 26px,var(--line) 26px 27px),repeating-linear-gradient(90deg,transparent 0 26px,var(--line) 26px 27px)"></div>
+                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+                        <polygon points="{{ campusPoints }}" fill="var(--accent)" fill-opacity="0.1" stroke="var(--accent)" stroke-width="1" vector-effect="non-scaling-stroke"></polygon>
+                      </svg>
+                      <div style="{{ miniConeStyle }}"></div>
+                      <div style="position:absolute;left:50%;top:50%;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);transform:translate(-50%,-50%)"></div>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ panoEmptyState }}" hint-placeholder-val="{{ false }}">
+                  <div style="height:clamp(300px,46vh,460px);border-radius:20px;background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px">
+                    <div style="font-size:16px;font-weight:500">{{ m.panoEmpty }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-3)">{{ panoCheckedLabel }}</div>
+                    <button onClick="{{ backTo3d }}" style="margin-top:6px;padding:10px 18px;font-size:13px;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ m.backTo3d }}</button>
+                  </div>
+                </sc-if>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ mapLoading }}" hint-placeholder-val="{{ true }}">
+              <div style="position:relative;height:clamp(360px,56vh,560px);border-radius:20px;overflow:hidden;background:var(--surface-2)">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;animation:vc-in .4s ease both">
+                  <polygon points="{{ campusPoints }}" fill="var(--accent)" fill-opacity="0.07" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"></polygon>
+                </svg>
+                <div style="position:absolute;left:0;right:0;bottom:16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-3);animation:vc-pulse 1.2s ease-in-out infinite">{{ m.loadingMap }}</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ noPolygonShown }}" hint-placeholder-val="{{ false }}">
+              <div style="padding-top:9px;font-size:12px;color:var(--ink-3);line-height:1.5;max-width:60ch">{{ noPolygonNote }}</div>
+            </sc-if>
+          </div>
+
+          <!-- side panel -->
+          <div style="flex:1 1 300px;min-width:0;max-width:360px;display:flex;flex-direction:column;gap:16px">
+            <sc-if value="{{ showSummary }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ m.area }}</span><span style="font-family:'JetBrains Mono',monospace">{{ areaLabel }}</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ m.buildingsFound }}</span><span style="font-family:'JetBrains Mono',monospace">{{ buildingCount }}</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ m.toCenter }}</span><span style="font-family:'JetBrains Mono',monospace">{{ distanceLabel }}</span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <span style="{{ g.dotStyle }}"></span>
+                      <span style="font-size:12.5px;font-weight:500">{{ g.label }}</span>
+                      <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3)">{{ g.count }}</span>
+                    </div>
+                    <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+                      <button onClick="{{ it.onClick }}" style="{{ it.style }}">
+                        <span>{{ it.name }}</span>
+                        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-3)">{{ it.photoCount }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ selCard }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:flex-start;gap:10px">
+                  <div style="min-width:0">
+                    <div style="font-size:17px;font-weight:600;letter-spacing:-0.01em;line-height:1.2">{{ selCard.name }}</div>
+                    <div style="display:flex;align-items:center;gap:7px;margin-top:5px;font-size:12.5px;color:var(--ink-2)">
+                      <span style="width:8px;height:8px;border-radius:2px;background:{{ selCard.typeColor }}"></span>
+                      <span>{{ selCard.type }}</span>
+                      <span style="color:var(--ink-3)">· {{ selCard.levels }}</span>
+                    </div>
+                  </div>
+                  <button onClick="{{ selCard.clear }}" style="margin-left:auto;background:none;border:none;color:var(--ink-3);font-size:16px;line-height:1;cursor:pointer">×</button>
+                </div>
+
+                <sc-if value="{{ selCard.hasPhotos }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+                    <sc-for list="{{ selCard.photos }}" as="ph" hint-placeholder-count="3">
+                      <div onClick="{{ ph.onClick }}" style="{{ ph.thumbStyle }}">
+                        <div style="{{ ph.badgeStyle }}"><span>{{ ph.tierIcon }}</span><span>{{ ph.confidence }}%</span></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ selCard.noPhotos }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:12.5px;color:var(--ink-3);line-height:1.5">{{ selCard.emptyPhotos }}</div>
+                </sc-if>
+
+                <div style="font-size:11.5px;color:var(--ink-3)">{{ m.buildingSource }}: {{ selCard.source }}</div>
+                <div style="display:flex;gap:7px;flex-wrap:wrap">
+                  <button onClick="{{ selCard.show3d }}" style="padding:9px 16px;font-size:12.5px;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ m.show3d }}</button>
+                  <button onClick="{{ selCard.walkHere }}" style="padding:9px 16px;font-size:12.5px;background:var(--surface-2);border:none;color:var(--ink-2);border-radius:999px;cursor:pointer" style-hover="border-color:var(--accent);color:var(--accent)">{{ m.walkHere }}</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ pinCard }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="{{ pinCard.badgeStyle }}"><span>{{ pinCard.tierIcon }}</span><span>{{ pinCard.tierLabel }} {{ pinCard.confidence }}%</span></div>
+                  <span style="font-size:12px;color:var(--ink-3)">{{ m.photoPin }}</span>
+                  <button onClick="{{ pinCard.clear }}" style="margin-left:auto;background:none;border:none;color:var(--ink-3);font-size:16px;line-height:1;cursor:pointer">×</button>
+                </div>
+                <div style="height:150px;border-radius:10px;background:repeating-linear-gradient(135deg,var(--ph1) 0 9px,var(--ph2) 9px 18px);display:flex;align-items:flex-end;padding:9px">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-3)">{{ pinCard.placeholder }}</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink-3)">{{ m.category }}</span><span>{{ pinCard.category }}</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink-3)">{{ t.source }}</span><a href="{{ pinCard.source_url }}" target="_blank" style="font-family:'JetBrains Mono',monospace">{{ pinCard.source_domain }}</a></div>
+                  <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink-3)">{{ t.published }}</span><span style="font-family:'JetBrains Mono',monospace">{{ pinCard.published_at }}</span></div>
+                  <div style="font-size:12px;color:var(--ink-3)">{{ pinCard.heading }}</div>
+                </div>
+                <div style="display:flex;flex-direction:column">
+                  <sc-for list="{{ pinCard.evidence }}" as="e" hint-placeholder-count="2">
+                    <div style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.45">
+                      <span>{{ e.icon }}</span><span>{{ e.label }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <button onClick="{{ pinCard.open }}" style="align-self:flex-start;padding:9px 16px;font-size:12.5px;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ m.openPhoto }}</button>
+              </div>
+            </sc-if>
+
+            <div style="margin-top:6px;padding-top:14px;border-top:1px solid var(--line)">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--ink-3);margin-bottom:8px">{{ m.demoStates }}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <sc-for list="{{ demoStates }}" as="ds" hint-placeholder-count="4">
+                  <button onClick="{{ ds.onClick }}" style="{{ ds.style }}">{{ ds.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- ============ 6. COMPARE ============ -->
+  <sc-if value="{{ isCompare }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1100px;margin:0 auto;padding:36px 22px 90px">
+      <h2 style="font-size:28px;font-weight:600;letter-spacing:-0.02em;margin:0 0 18px">{{ t.compareTitle }}</h2>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:22px">
+        <sc-for list="{{ compareMascots }}" as="cm" hint-placeholder-count="2">
+          <div style="flex:1 1 220px;display:flex;align-items:flex-end;gap:12px;padding:14px 18px;background:var(--surface-2);border-radius:18px">
+            <dc-import name="Mascot" state="idle" top="hoodie" head="cap" accessory="backpack" primary="{{ cm.primary }}" secondary="{{ cm.secondary }}" label="{{ cm.label }}" height="{{ 120 }}" hint-size="82px,120px"></dc-import>
+            <div style="padding-bottom:10px">
+              <div style="font-size:13.5px;font-weight:500">{{ cm.name }}</div>
+              <div style="font-size:11.5px;color:var(--ink-3)">{{ g.wardrobeNote }} · DEMO</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px">
+        <sc-for list="{{ compareCols }}" as="col" hint-placeholder-count="2">
+          <div>
+            <div style="padding-bottom:14px">
+              <div style="font-size:19px;font-weight:600;letter-spacing:-0.01em">{{ col.name }}</div>
+              <div style="font-size:13px;color:var(--ink-2);margin-top:3px">{{ col.flag }} {{ col.place }}</div>
+            </div>
+            <div style="height:130px;position:relative;border-radius:10px;overflow:hidden;background:repeating-linear-gradient(0deg,var(--ph1) 0 17px,var(--ph2) 17px 18px),repeating-linear-gradient(90deg,var(--ph1) 0 17px,var(--ph2) 17px 18px);display:flex;align-items:center;justify-content:center">
+              <div style="width:96px;height:62px;border:1.5px dashed var(--accent);border-radius:6px;background:var(--accent-soft)"></div>
+            </div>
+            <div style="padding:16px 0;display:flex;flex-direction:column;gap:9px;border-bottom:1px solid var(--line)">
+              <sc-for list="{{ col.rows }}" as="r" hint-placeholder-count="4">
+                <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px">
+                  <span style="color:var(--ink-3)">{{ r.label }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace">{{ r.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="padding:16px 0">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.07em;color:var(--ink-3);margin-bottom:10px">{{ t.verifiedByCat }}</div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ col.cats }}" as="cat" hint-placeholder-count="5">
+                  <div style="display:flex;flex-direction:column;gap:5px">
+                    <div style="display:flex;justify-content:space-between;font-size:12.5px"><span>{{ cat.label }}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--ink-2)">{{ cat.count }}</span></div>
+                    <div style="height:4px;border-radius:2px;background:var(--surface-2)"><div style="{{ cat.barStyle }}"></div></div>
+                    <div style="display:flex;gap:6px;margin-top:2px">
+                      <sc-for list="{{ cat.previews }}" as="pv" hint-placeholder-count="3">
+                        <div style="{{ pv.style }}"></div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 7. GLOBAL ERROR ============ -->
+  <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:560px;margin:0 auto;padding:16vh 22px 80px;text-align:center">
+      <div style="width:44px;height:44px;margin:0 auto 22px;border-radius:50%;background:var(--warn-soft);color:var(--warn);display:flex;align-items:center;justify-content:center;font-size:19px">⚠</div>
+      <h2 style="font-size:24px;font-weight:600;margin:0 0 10px;letter-spacing:-0.02em">{{ t.errTitle }}</h2>
+      <p style="margin:0 0 24px;color:var(--ink-2);font-size:15px;line-height:1.6">{{ t.errBody }}</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button onClick="{{ retry }}" style="padding:13px 22px;font-size:14px;font-weight:500;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ t.retry }}</button>
+        <button onClick="{{ goSearch }}" style="padding:13px 22px;font-size:14px;background:var(--surface-2);color:var(--ink-2);border:none;border-radius:999px;cursor:pointer">{{ t.backToSearch }}</button>
+      </div>
+      <div style="margin-top:22px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3)">{{ errCode }}</div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 8. GUIDE / STATES ============ -->
+  <sc-if value="{{ isGuide }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1100px;margin:0 auto;padding:36px 22px 90px">
+      <h2 style="font-size:28px;font-weight:600;letter-spacing:-0.02em;margin:0 0 10px">{{ g.statesTitle }}</h2>
+      <p style="margin:0 0 6px;max-width:64ch;font-size:14.5px;line-height:1.65;color:var(--ink-2);text-wrap:pretty">{{ g.statesIntro }}</p>
+      <p style="margin:0 0 28px;font-size:12.5px;color:var(--ink-3)">{{ g.namesNote }}</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:18px">
+        <sc-for list="{{ stateSheet }}" as="s" hint-placeholder-count="7">
+          <div onClick="{{ s.onClick }}" style="display:flex;flex-direction:column;gap:10px;cursor:pointer">
+            <div style="display:flex;justify-content:center;border-radius:18px;background:var(--surface-2);padding:14px 0">
+              <dc-import name="Mascot" state="{{ s.key }}" top="{{ outfitTop }}" head="{{ outfitHead }}" accessory="{{ outfitAcc }}" primary="{{ brandPrimary }}" secondary="{{ brandSecondary }}" label="{{ brandLabel }}" height="{{ 150 }}" hint-size="104px,150px"></dc-import>
+            </div>
+            <div style="font-size:14px;font-weight:600">{{ s.label }}</div>
+            <div style="font-size:12.5px;line-height:1.5;color:var(--ink-3)">{{ s.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ 9. WARDROBE ============ -->
+  <sc-if value="{{ isWardrobe }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1000px;margin:0 auto;padding:36px 22px 90px">
+      <h2 style="font-size:28px;font-weight:600;letter-spacing:-0.02em;margin:0 0 6px">{{ g.wardrobeTitle }}</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-3);margin-bottom:26px">
+        <span>{{ g.wardrobeNote }}</span>
+        <sc-if value="{{ brandHasSource }}" hint-placeholder-val="{{ true }}">
+          <a href="{{ brandSourceUrl }}" target="_blank">{{ brandSourceLabel }}</a>
+        </sc-if>
+        <sc-if value="{{ brandHasSource }}" hint-placeholder-val="{{ false }}">
+          <span></span>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:0 0 150px">
+          <sc-for list="{{ wardrobeCats }}" as="c" hint-placeholder-count="3">
+            <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+          </sc-for>
+        </div>
+
+        <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:16px">
+          <div id="mascot-export" style="{{ wardrobeBgStyle }}">
+            <dc-import name="Mascot" state="{{ mascotState }}" top="{{ outfitTop }}" head="{{ outfitHead }}" accessory="{{ outfitAcc }}" primary="{{ brandPrimary }}" secondary="{{ brandSecondary }}" label="{{ brandLabel }}" height="{{ 300 }}" hint-size="200px,300px"></dc-import>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <sc-for list="{{ wardrobeOptions }}" as="o" hint-placeholder-count="3">
+              <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onClick="{{ randomOutfit }}" style="padding:11px 18px;font-size:13px;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ g.random }}</button>
+            <button onClick="{{ savePng }}" style="padding:11px 18px;font-size:13px;background:var(--surface-2);border:none;color:var(--ink-2);border-radius:999px;cursor:pointer" style-hover="color:var(--accent)">{{ g.savePng }}</button>
+          </div>
+          <div style="font-size:11.5px;color:var(--ink-3);line-height:1.5;max-width:52ch">{{ g.demoNote }}</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ CHAT ============ -->
+  <sc-if value="{{ chatOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;top:0;right:0;bottom:0;z-index:55;width:min(100%,430px);background:var(--bg);display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(0,0,0,.14);animation:vc-in .2s ease both">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px">
+        <div style="flex:0 0 58px">
+          <dc-import name="Mascot" state="{{ mascotState }}" top="{{ outfitTop }}" head="{{ outfitHead }}" accessory="{{ outfitAcc }}" primary="{{ brandPrimary }}" secondary="{{ brandSecondary }}" label="{{ brandLabel }}" height="{{ 82 }}" hint-size="58px,82px"></dc-import>
+        </div>
+        <div style="min-width:0">
+          <div style="font-size:14px;font-weight:600">{{ g.chatTitle }}</div>
+          <div style="font-size:11.5px;color:var(--ink-3)">{{ uni.name }}</div>
+        </div>
+        <button onClick="{{ closeChat }}" style="margin-left:auto;width:30px;height:30px;border:none;background:var(--surface-2);color:var(--ink-2);border-radius:999px;cursor:pointer">×</button>
+      </div>
+
+      <div id="vc-chat-body" style="flex:1;min-height:0;overflow:auto;padding:16px 14px;display:flex;flex-direction:column;gap:16px">
+        <sc-if value="{{ chatEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:13.5px;line-height:1.6;color:var(--ink-2);max-width:40ch">{{ g.emptyChat }}</div>
+        </sc-if>
+        <sc-for list="{{ chatMsgsView }}" as="msg" hint-placeholder-count="2">
+          <div style="{{ msg.rowStyle }}">
+            <div style="{{ msg.bubbleStyle }}">{{ msg.text }}</div>
+            <sc-if value="{{ msg.photos }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+                <sc-for list="{{ msg.photos }}" as="ph" hint-placeholder-count="3">
+                  <div onClick="{{ ph.onClick }}" style="{{ ph.thumbStyle }}">
+                    <div style="{{ ph.badgeStyle }}"><span>{{ ph.tierIcon }}</span><span>{{ ph.confidence }}%</span></div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ msg.actions }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:7px;flex-wrap:wrap">
+                <sc-for list="{{ msg.actions }}" as="a" hint-placeholder-count="2">
+                  <button onClick="{{ a.onClick }}" style="padding:8px 14px;font-size:12.5px;border:none;background:var(--surface-2);color:var(--ink-2);border-radius:999px;cursor:pointer" style-hover="border-color:var(--accent);color:var(--accent)">{{ a.label }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ msg.hasChecked }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12px;color:var(--ink-3);line-height:1.5">{{ msg.checked }}</div>
+            </sc-if>
+            <sc-if value="{{ msg.hasCitations }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.07em;color:var(--ink-3)">{{ g.sources }}</div>
+                <sc-for list="{{ msg.citations }}" as="c" hint-placeholder-count="2">
+                  <div style="font-size:11.5px;color:var(--ink-3)">[{{ c.n }}] <a href="{{ c.url }}" target="_blank">{{ c.domain }}</a> · {{ c.title }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ chatError }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:9px;padding:14px 16px;border-radius:18px;background:var(--warn-soft)">
+            <span style="font-size:13px">{{ g.chatErr }}</span>
+            <button onClick="{{ retryChat }}" style="align-self:flex-start;padding:8px 16px;font-size:12.5px;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ g.retry }}</button>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="padding:12px 18px 16px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
+          <sc-for list="{{ chatChips }}" as="c" hint-placeholder-count="5">
+            <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ g.chatPh }}" style="flex:1;min-width:0;padding:12px 16px;font-size:13.5px;font-family:inherit;color:var(--ink);background:var(--surface-2);border:1px solid transparent;border-radius:999px;outline:none" style-focus="border-color:var(--accent);background:var(--surface)" />
+          <button onClick="{{ chatSend }}" style="padding:12px 18px;font-size:13px;font-weight:500;background:var(--ink);color:var(--bg);border:none;border-radius:999px;cursor:pointer">{{ g.send }}</button>
+        </div>
+        <div style="font-size:11px;color:var(--ink-3);line-height:1.45">{{ g.chatNote }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showFab }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ openChat }}" style="{{ fabStyle }}" title="{{ g.askMe }}">
+      <div style="position:absolute;left:50%;top:calc(50% - 37px);transform:translateX(-50%)">
+        <dc-import name="Mascot" state="idle" top="{{ outfitTop }}" head="{{ outfitHead }}" accessory="{{ outfitAcc }}" primary="{{ brandPrimary }}" secondary="{{ brandSecondary }}" label="{{ brandLabel }}" height="{{ 128 }}" hint-size="88px,128px"></dc-import>
+      </div>
+    </button>
+  </sc-if>
+
+  <!-- ============ 5. PHOTO DETAIL ============ -->
+  <sc-if value="{{ hasOpenPhoto }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePhoto }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,10,12,.62);display:flex;justify-content:flex-end;animation:vc-in .18s ease both">
+      <div onClick="{{ stopProp }}" style="width:min(100%,980px);height:100%;background:var(--bg);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--bg)">
+          <div style="{{ openPhoto.badgeStyleStatic }}"><span>{{ openPhoto.tierIcon }}</span><span>{{ openPhoto.tierLabel }}</span></div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-3)">{{ openPhoto.id }}</span>
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button onClick="{{ prevPhoto }}" style="width:32px;height:32px;border:none;background:var(--surface-2);color:var(--ink-2);border-radius:999px;cursor:pointer">←</button>
+            <button onClick="{{ nextPhoto }}" style="width:32px;height:32px;border:none;background:var(--surface-2);color:var(--ink-2);border-radius:999px;cursor:pointer">→</button>
+            <button onClick="{{ closePhoto }}" style="width:32px;height:32px;border:none;background:var(--surface-2);color:var(--ink-2);border-radius:999px;cursor:pointer">×</button>
+          </div>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))">
+          <div style="padding:18px;display:flex;flex-direction:column;gap:12px">
+            <div style="position:relative;aspect-ratio:4/3;border-radius:18px;background:repeating-linear-gradient(135deg,var(--ph1) 0 10px,var(--ph2) 10px 20px);display:flex;align-items:center;justify-content:center">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-3)">{{ openPhoto.placeholder }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ t.source }}</span><a href="{{ openPhoto.source_url }}" target="_blank" style="font-family:'JetBrains Mono',monospace">{{ openPhoto.source_domain }}</a></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ t.author }}</span><span>{{ openPhoto.author }}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ t.license }}</span><span style="color:{{ openPhoto.licenseColor }}">{{ openPhoto.licenseLabel }}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ t.published }}</span><span style="font-family:'JetBrains Mono',monospace">{{ openPhoto.published_at }}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--ink-3)">{{ t.retrieved }}</span><span style="font-family:'JetBrains Mono',monospace">{{ openPhoto.retrieved_at }}</span></div>
+            </div>
+          </div>
+
+          <div style="padding:20px;display:flex;flex-direction:column;gap:22px;background:var(--surface-2)">
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.07em;color:var(--ink-3);margin-bottom:8px">{{ t.confScale }}</div>
+              <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:500;color:{{ openPhoto.tierColor }}">{{ openPhoto.confidence }}</span>
+                <span style="font-size:13px;color:var(--ink-3)">/ 100</span>
+              </div>
+              <div style="height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden"><div style="{{ openPhoto.barStyle }}"></div></div>
+            </div>
+
+            <div>
+              <div style="font-size:14px;font-weight:600;margin-bottom:10px">{{ t.whyTitle }}</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ openPhoto.evidence }}" as="e" hint-placeholder-count="4">
+                  <div style="{{ e.rowStyle }}">
+                    <span style="font-size:14px;line-height:1.3">{{ e.icon }}</span>
+                    <span style="font-size:13px;line-height:1.45;color:var(--ink)">{{ e.label }}</span>
+                    <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;color:{{ e.weightColor }}">{{ e.weightLabel }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div>
+              <button onClick="{{ toggleDup }}" style="display:flex;width:100%;align-items:center;gap:8px;padding:9px 0;background:transparent;border:none;border-top:1px solid var(--line);cursor:pointer;color:var(--ink-2);font-size:13px;text-align:left">
+                <span>{{ t.dupTitle }}: {{ openPhoto.dupCount }}</span>
+                <span style="margin-left:auto;color:var(--ink-3)">{{ dupCaret }}</span>
+              </button>
+              <sc-if value="{{ dupOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+                  <sc-for list="{{ openPhoto.duplicates }}" as="d" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div style="flex:0 0 52px;height:38px;border-radius:6px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,var(--ph1) 0 6px,var(--ph2) 6px 12px)"></div>
+                      <div style="min-width:0">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3)">{{ d.id }}</div>
+                        <a href="{{ d.source_url }}" target="_blank" style="font-size:12px">{{ d.domain }}</a>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+
+            <button onClick="{{ report }}" style="margin-top:auto;align-self:flex-start;padding:10px 16px;background:var(--surface);border:none;color:var(--ink-2);border-radius:999px;font-size:13px;cursor:pointer" style-hover="border-color:var(--warn);color:var(--warn)">{{ reportLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;oklch(0.55 0.14 265)&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;oklch(0.55 0.14 265)&quot;,&quot;oklch(0.52 0.13 200)&quot;,&quot;oklch(0.52 0.14 150)&quot;,&quot;oklch(0.55 0.15 30)&quot;]},&quot;defaultLang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;ru&quot;,&quot;options&quot;:[&quot;ru&quot;,&quot;en&quot;],&quot;tsType&quot;:&quot;string&quot;}}">
+const RU = {
+  searchTitle:"Проверенный визуальный профиль кампуса за 30 секунд",
+  searchSub:"Введите название университета — соберём фотографии кампуса и студенческой жизни, у каждой укажем источник, лицензию и уровень достоверности.",
+  inputPh:"Введите название университета", searchBtn:"Найти", examples:"ПРИМЕРЫ",
+  note:"Поддерживаются вузы Кореи, Казахстана, Германии, Японии и ещё 40 стран. Сервис показывает только фотографии с указанным источником — ничего не генерируем и не додумываем.",
+  disambTitle:"Возможно, вы имели в виду…", disambSub:"Найдено несколько совпадений. Выберите нужный университет.",
+  alsoKnown:"Другие названия", choose:"Выбрать", noneOfThese:"Ничего из этого — искать заново",
+  notFoundTitle:"Университет не найден", notFoundBody:"Мы проверили 6 источников и не нашли вуз с таким названием.",
+  notFoundTips:["Попробуйте официальное название на английском языке","Добавьте город: «Университет, Алматы»","Уберите сокращения и аббревиатуры","Проверьте, поддерживается ли страна"],
+  tryAgain:"Повторить поиск",
+  loadingTitle:"Собираем визуальный профиль", stepsTitle:"ШАГИ", sourcesTitle:"ИСТОЧНИКИ",
+  photosAppearing:"ФОТО ПОЯВЛЯЮТСЯ ПО МЕРЕ ПРОВЕРКИ",
+  stepNames:["Распознавание","Поиск источников","Проверка","Удаление дублей","Категории","Описание"],
+  stLoading:"загрузка", stOk:"готово", stUnavail:"недоступен", stTimeout:"таймаут",
+  about:"О КАМПУСЕ", distance:"До центра города", genIn:"собрано за",
+  statPhotos:"фото", statVerified:"проверено", statLikely:"вероятно", statHidden:"скрыто",
+  tabs:["Все","Кампус","Общежития","Аудитории","Библиотеки","Город"],
+  chips:["Общежитие","Спорт","Лаборатории","Студенческая жизнь"],
+  sortBy:"Сортировка", sortConf:"по достоверности", sortDate:"по дате",
+  tierToggle:"Показать неподтверждённые",
+  tierWarn:"Неподтверждённые фото могут относиться к другому месту: геотега или категории источника нет.",
+  verified:"Проверено", likely:"Вероятно", unconfirmed:"Не подтверждено",
+  license:"Лицензия", unknownLicense:"Лицензия неизвестна · веб-поиск",
+  emptyDorms:"Не удалось найти надёжные фото общежитий. Проверено 5 источников.",
+  emptyWhere:"Где искали:",
+  bannerFlickr:"Flickr недоступен — результаты могут быть неполными.",
+  whyTitle:"Почему мы считаем, что это фото отсюда",
+  confScale:"ИТОГОВАЯ ШКАЛА ДОСТОВЕРНОСТИ",
+  source:"Источник", author:"Автор", published:"Дата публикации", retrieved:"Дата получения",
+  dupTitle:"Похожие фото, скрытые как дубликаты", report:"Сообщить об ошибке", reported:"Спасибо, отправлено",
+  compareTitle:"Сравнение университетов", verifiedByCat:"ПРОВЕРЕННЫХ ФОТО ПО КАТЕГОРИЯМ",
+  rowDistance:"До центра", rowClimate:"Климат", rowVerified:"Проверенных фото", rowSources:"Источников доступно",
+  errTitle:"Сервер недоступен", errBody:"Не удалось связаться с сервисом проверки. Проверьте соединение и повторите — уже собранные данные не потеряются.",
+  retry:"Повторить", backToSearch:"Вернуться к поиску",
+  nav:["Поиск","Уточнение","Не найдено","Загрузка","Профиль","Сравнение","Ошибка"],
+  theme:["Тёмная тема","Светлая тема"]
+};
+const EN = {
+  searchTitle:"A verified visual profile of any campus in 30 seconds",
+  searchSub:"Enter a university name — we collect photos of the campus and student life, each with its source, license and confidence tier.",
+  inputPh:"Enter a university name", searchBtn:"Search", examples:"EXAMPLES",
+  note:"Universities in Korea, Kazakhstan, Germany, Japan and 40 more countries are supported. We only show photos that have a stated source — nothing is generated or guessed.",
+  disambTitle:"Did you mean…", disambSub:"Several matches found. Pick the right university.",
+  alsoKnown:"Also known as", choose:"Select", noneOfThese:"None of these — search again",
+  notFoundTitle:"University not found", notFoundBody:"We checked 6 sources and found no university under that name.",
+  notFoundTips:["Try the official English name","Add the city: “University, Almaty”","Avoid abbreviations","Check that the country is supported"],
+  tryAgain:"Search again",
+  loadingTitle:"Building the visual profile", stepsTitle:"STEPS", sourcesTitle:"SOURCES",
+  photosAppearing:"PHOTOS APPEAR AS THEY ARE VERIFIED",
+  stepNames:["Recognition","Source lookup","Verification","Deduplication","Categories","Description"],
+  stLoading:"loading", stOk:"done", stUnavail:"unavailable", stTimeout:"timeout",
+  about:"ABOUT THE CAMPUS", distance:"To city centre", genIn:"collected in",
+  statPhotos:"photos", statVerified:"verified", statLikely:"likely", statHidden:"hidden",
+  tabs:["All","Campus","Dorms","Classrooms","Libraries","City"],
+  chips:["Dorm","Sport","Labs","Student life"],
+  sortBy:"Sort", sortConf:"by confidence", sortDate:"by date",
+  tierToggle:"Show unconfirmed",
+  tierWarn:"Unconfirmed photos may show a different place: no geotag and no source category.",
+  verified:"Verified", likely:"Likely", unconfirmed:"Unconfirmed",
+  license:"License", unknownLicense:"License unknown · web search",
+  emptyDorms:"No reliable dormitory photos found. 5 sources checked.",
+  emptyWhere:"Where we looked:",
+  bannerFlickr:"Flickr is unavailable — results may be incomplete.",
+  whyTitle:"Why we think this photo is from here",
+  confScale:"FINAL CONFIDENCE SCORE",
+  source:"Source", author:"Author", published:"Published", retrieved:"Retrieved",
+  dupTitle:"Similar photos hidden as duplicates", report:"Report an error", reported:"Thanks, reported",
+  compareTitle:"Compare universities", verifiedByCat:"VERIFIED PHOTOS BY CATEGORY",
+  rowDistance:"To centre", rowClimate:"Climate", rowVerified:"Verified photos", rowSources:"Sources available",
+  errTitle:"Server unavailable", errBody:"We could not reach the verification service. Check your connection and retry — collected data is kept.",
+  retry:"Retry", backToSearch:"Back to search",
+  nav:["Search","Disambiguation","Not found","Loading","Profile","Compare","Error"],
+  theme:["Dark theme","Light theme"]
+};
+
+const UNIS = [
+  {id:"ku", name:"Korea University", flag:"🇰🇷", city:"Seoul", country:"South Korea", cityRu:"Сеул", countryRu:"Республика Корея",
+   aliases:"고려대학교, KU, Korea Univ.", website:"https://www.korea.ac.kr", distance:4.8, climate:"Dfa / влажный континентальный", climateEn:"Dfa / humid continental"},
+  {id:"kaist", name:"KAIST", flag:"🇰🇷", city:"Daejeon", country:"South Korea", cityRu:"Тэджон", countryRu:"Республика Корея",
+   aliases:"한국과학기술원, Korea Advanced Institute of Science and Technology", website:"https://www.kaist.ac.kr", distance:6.2, climate:"Dwa / муссонный", climateEn:"Dwa / monsoon"},
+  {id:"nu", name:"Назарбаев Университет", flag:"🇰🇿", city:"Астана", country:"Казахстан", cityRu:"Астана", countryRu:"Казахстан",
+   aliases:"Nazarbayev University, NU", website:"https://nu.edu.kz", distance:9.1, climate:"Dfb / резко континентальный", climateEn:"Dfb / continental"},
+  {id:"tum", name:"TU Munich", flag:"🇩🇪", city:"München", country:"Germany", cityRu:"Мюнхен", countryRu:"Германия",
+   aliases:"Technische Universität München, TUM", website:"https://www.tum.de", distance:2.3, climate:"Cfb / умеренный", climateEn:"Cfb / temperate"}
+];
+
+const CATS = ["campus","dorms","classrooms","libraries","city"];
+
+function photo(i, o){
+  return Object.assign({
+    id:"ph_"+String(1000+i), category:"campus", tags:[], confidence:70, tier:"likely",
+    source_url:"https://commons.wikimedia.org", source_domain:"commons.wikimedia.org",
+    author:"Demo Contributor", license:"CC BY-SA 4.0", published_at:"2024-05-12", retrieved_at:"2026-09-16",
+    h:190, placeholder:"campus photo · placeholder", evidence:[], duplicates:[]
+  }, o);
+}
+
+const EV = {
+  geo:(m)=>({type:"geo", icon:"📍", label:"Геотег в "+m+" м внутри границ кампуса", labelEn:"Geotag "+m+" m inside campus boundary", weight:+28}),
+  cat:(c)=>({type:"category", icon:"📁", label:"Находится в категории Commons «"+c+"»", labelEn:"In Commons category “"+c+"”", weight:+22}),
+  txt:(s)=>({type:"text", icon:"🏷", label:"Описание упоминает «"+s+"»", labelEn:"Description mentions “"+s+"”", weight:+14}),
+  vis:(s,c)=>({type:"vision", icon:"👁", label:"AI: "+s+" (уверенность "+c+")", labelEn:"AI: "+s+" (confidence "+c+")", weight:+11}),
+  noGeo:{type:"missing", icon:"⚠", label:"Нет геотега", labelEn:"No geotag", weight:-18},
+  noLic:{type:"missing", icon:"⚠", label:"Лицензия не указана на странице источника", labelEn:"No license stated on source page", weight:-12}
+};
+
+const PHOTOS = [
+  photo(1,{id:"ph_1001", category:"libraries", tags:["student_life"], confidence:94, tier:"verified", h:240, placeholder:"library interior · placeholder",
+    source_url:"https://commons.wikimedia.org/wiki/Category:Korea_University_Library", author:"J. Park", published_at:"2024-05-12",
+    evidence:[EV.geo(120), EV.cat("Korea University Library"), EV.txt("Central Library"), EV.vis("интерьер библиотеки","0.91")],
+    duplicates:[{id:"ph_2210", domain:"flickr.com", source_url:"https://flickr.com"},{id:"ph_2211", domain:"commons.wikimedia.org", source_url:"https://commons.wikimedia.org"},{id:"ph_2212", domain:"mapillary.com", source_url:"https://mapillary.com"}]}),
+  photo(2,{id:"ph_1002", category:"campus", tags:["student_life"], confidence:91, tier:"verified", h:170, placeholder:"main quad · placeholder",
+    source_url:"https://www.openstreetmap.org", source_domain:"openstreetmap.org", license:"ODbL", author:"OSM contributor", published_at:"2025-03-02",
+    evidence:[EV.geo(40), EV.cat("Korea University Campus"), EV.vis("историческое здание","0.88")],
+    duplicates:[{id:"ph_2301", domain:"flickr.com", source_url:"https://flickr.com"}]}),
+  photo(3,{id:"ph_1003", category:"campus", tags:["sport"], confidence:88, tier:"verified", h:210, placeholder:"sports field · placeholder",
+    source_url:"https://commons.wikimedia.org", author:"S. Lim", published_at:"2023-10-18",
+    evidence:[EV.geo(260), EV.cat("Sports facilities in Seoul"), EV.txt("Hwajeong Gymnasium")], duplicates:[]}),
+  photo(4,{id:"ph_1004", category:"classrooms", tags:["labs"], confidence:85, tier:"verified", h:185, placeholder:"lecture hall · placeholder",
+    source_url:"https://www.korea.ac.kr", source_domain:"korea.ac.kr", license:"© Официальный сайт, разрешено к показу", author:"Korea University", published_at:"2025-01-24",
+    evidence:[EV.cat("Официальный сайт: /campus/facilities"), EV.txt("Lecture Hall 301"), EV.vis("аудитория","0.93"), EV.noGeo], duplicates:[{id:"ph_2410", domain:"korea.ac.kr", source_url:"https://korea.ac.kr"}]}),
+  photo(5,{id:"ph_1005", category:"libraries", tags:["labs"], confidence:82, tier:"verified", h:150, placeholder:"reading room · placeholder",
+    source_url:"https://commons.wikimedia.org", author:"H. Choi", published_at:"2024-11-06",
+    evidence:[EV.geo(85), EV.cat("Korea University Library"), EV.vis("читальный зал","0.79")], duplicates:[]}),
+  photo(6,{id:"ph_1006", category:"city", tags:["student_life"], confidence:79, tier:"likely", h:225, placeholder:"anam-dong street · placeholder",
+    source_url:"https://www.mapillary.com", source_domain:"mapillary.com", license:"CC BY-SA 4.0", author:"Mapillary user", published_at:"2025-06-14",
+    evidence:[EV.geo(640), EV.txt("Anam-dong"), EV.vis("городская улица","0.84"), EV.noGeo], duplicates:[{id:"ph_2510", domain:"mapillary.com", source_url:"https://mapillary.com"}]}),
+  photo(7,{id:"ph_1007", category:"campus", tags:["student_life"], confidence:74, tier:"likely", h:160, placeholder:"campus path · placeholder",
+    source_url:"https://commons.wikimedia.org", author:"Anonymous", published_at:"2022-09-30",
+    evidence:[EV.cat("Universities in Seoul"), EV.txt("campus"), EV.noGeo], duplicates:[]}),
+  photo(8,{id:"ph_1008", category:"classrooms", tags:["labs"], confidence:71, tier:"likely", h:200, placeholder:"lab bench · placeholder",
+    source_url:"https://www.flickr.com", source_domain:"flickr.com", license:"CC BY 2.0", author:"flickr user", published_at:"2023-04-11",
+    evidence:[EV.txt("KU research lab"), EV.vis("лаборатория","0.76"), EV.noGeo], duplicates:[{id:"ph_2610", domain:"flickr.com", source_url:"https://flickr.com"}]}),
+  photo(9,{id:"ph_1009", category:"city", tags:["student_life"], confidence:68, tier:"likely", h:175, placeholder:"student cafe · placeholder",
+    source_url:"https://commons.wikimedia.org", author:"Y. Kim", published_at:"2024-02-20",
+    evidence:[EV.geo(910), EV.txt("student district"), EV.noGeo], duplicates:[]}),
+  photo(10,{id:"ph_1010", category:"campus", tags:["sport"], confidence:64, tier:"likely", h:145, placeholder:"stadium stand · placeholder",
+    source_url:"https://www.flickr.com", source_domain:"flickr.com", license:"CC BY 2.0", author:"flickr user", published_at:"2021-11-02",
+    evidence:[EV.txt("Korea University stadium"), EV.vis("стадион","0.72"), EV.noGeo], duplicates:[]}),
+  photo(11,{id:"ph_1011", category:"campus", tags:[], confidence:41, tier:"unconfirmed", h:195, placeholder:"unidentified building · placeholder",
+    source_url:"https://example-blog.kr", source_domain:"example-blog.kr", license:"unknown", author:"—", published_at:"2020-07-15",
+    evidence:[EV.txt("university"), EV.noGeo, EV.noLic], duplicates:[]}),
+  photo(12,{id:"ph_1012", category:"city", tags:[], confidence:33, tier:"unconfirmed", h:165, placeholder:"street view · placeholder",
+    source_url:"https://web-search-result.example", source_domain:"web-search-result.example", license:"unknown", author:"—", published_at:"2019-05-08",
+    evidence:[EV.vis("город","0.58"), EV.noGeo, EV.noLic], duplicates:[]}),
+  photo(13,{id:"ph_1013", category:"libraries", tags:["labs"], confidence:86, tier:"verified", h:155, placeholder:"archive shelves · placeholder",
+    source_url:"https://commons.wikimedia.org", author:"D. Seo", published_at:"2025-08-01",
+    evidence:[EV.geo(70), EV.cat("Korea University Library"), EV.vis("книжные стеллажи","0.9")], duplicates:[]}),
+  photo(14,{id:"ph_1014", category:"classrooms", tags:["student_life"], confidence:77, tier:"likely", h:215, placeholder:"seminar room · placeholder",
+    source_url:"https://commons.wikimedia.org", author:"M. Han", published_at:"2024-09-19",
+    evidence:[EV.geo(150), EV.txt("seminar"), EV.vis("семинар","0.81")], duplicates:[]})
+];
+
+class Component extends DCLogic {
+  state = {
+    screen:"search", lang:"ru", theme:"light", query:"", focused:false,
+    uniId:"ku", elapsedMs:0, revealed:0,
+    tab:"all", activeChips:[], showUnconfirmed:false, sort:"confidence",
+    openIdx:-1, dupOpen:false, banner:true, reported:false,
+    section:"photos", mapMode:"2d", mapReady:false, zoom:1, bearing:0, tilt:58,
+    buildingId:null, pinId:null, buildingQuery:"", flyover:false,
+    layers:{academic:true,dorm:true,library:true,sport:true,lab:true,food:true,other:true},
+    showPins:true, showPano:true, showTransit:true, showUnconfirmedPins:false,
+    noPolygon:false, noHeights:false, noPano:false, no3d:false,
+    yaw:0, panoIdx:0, panoBanner:false, sheetOpen:true,
+    guideHidden:false, chatOpen:false, chatInput:"", chatMsgs:[], mascot:"idle",
+    outfit:{top:"hoodie", head:"cap", accessory:"backpack"}, wardrobeCat:"top",
+    chatBusy:false, chatError:false, bounce:true
+  };
+
+  componentDidMount(){
+    this.applyTheme();
+    const a = this.props.accentColor;
+    if (a) document.documentElement.style.setProperty("--accent", a);
+    if (this.props.defaultLang === "en") this.setState({lang:"en"});
+    document.addEventListener("keydown", this.onKey);
+  }
+  componentDidUpdate(){
+    this.applyTheme();
+    const cb = document.getElementById("vc-chat-body");
+    if (cb) cb.scrollTop = cb.scrollHeight;
+  }
+  componentWillUnmount(){ clearInterval(this.timer); clearInterval(this.flyTimer); clearTimeout(this.mapTimer); document.removeEventListener("keydown", this.onKey); }
+
+  onKey = (e)=>{
+    if (this.state.openIdx < 0) return;
+    if (e.key === "Escape") this.setState({openIdx:-1});
+    if (e.key === "ArrowRight") this.step(1);
+    if (e.key === "ArrowLeft") this.step(-1);
+  };
+
+  applyTheme(){ document.documentElement.setAttribute("data-theme", this.state.theme); }
+  T(){ return this.state.lang === "en" ? EN : RU; }
+  uni(){ return UNIS.find(u=>u.id===this.state.uniId) || UNIS[0]; }
+  placeOf(u){ return this.state.lang === "en" ? (u.city+", "+u.country) : (u.cityRu+", "+u.countryRu); }
+
+  go = (s)=>{ clearInterval(this.timer); this.setState({screen:s, openIdx:-1}); if (s==="loading") this.runLoading(); };
+
+  runLoading(){
+    this.setState({elapsedMs:0, revealed:0});
+    clearInterval(this.timer);
+    this.timer = setInterval(()=>{
+      this.setState(st=>{
+        const ms = st.elapsedMs + 100;
+        const rev = Math.min(9, Math.floor(Math.max(0, ms-4200)/900));
+        if (ms >= 18400){ clearInterval(this.timer); setTimeout(()=>this.setState({screen:"profile"}), 450); }
+        return {elapsedMs:ms, revealed:rev};
+      });
+    }, 100);
+  }
+
+  submit = ()=>{
+    const q = this.state.query.trim();
+    if (!q) return;
+    const exact = UNIS.find(u=>u.name.toLowerCase() === q.toLowerCase());
+    if (exact){ this.setState({uniId:exact.id}); this.go("loading"); return; }
+    const partial = UNIS.filter(u=>(u.name+" "+u.aliases).toLowerCase().includes(q.toLowerCase()));
+    if (partial.length === 0){ this.setState({screen:"notfound"}); return; }
+    this.setState({screen:"disamb"});
+  };
+
+  step(d){
+    const list = this.visiblePhotos();
+    if (!list.length) return;
+    this.setState(st=>({openIdx:(st.openIdx + d + list.length) % list.length, dupOpen:false, reported:false}));
+  }
+
+  visiblePhotos(){
+    const st = this.state;
+    let list = PHOTOS.filter(p=>{
+      if (st.tab !== "all" && p.category !== st.tab) return false;
+      if (p.tier === "unconfirmed" && !st.showUnconfirmed) return false;
+      if (st.activeChips.length){
+        const map = {0:"dorm",1:"sport",2:"labs",3:"student_life"};
+        const want = st.activeChips.map(i=>map[i]);
+        if (!want.some(w=>p.tags.indexOf(w) >= 0)) return false;
+      }
+      return true;
+    });
+    if (st.sort === "confidence") list = list.slice().sort((a,b)=>b.confidence-a.confidence);
+    else list = list.slice().sort((a,b)=>b.published_at.localeCompare(a.published_at));
+    return list;
+  }
+
+  tierMeta(tier){
+    const t = this.T();
+    if (tier === "verified") return {c:"var(--ok)", soft:"var(--ok-soft)", icon:"🛡", label:t.verified};
+    if (tier === "likely") return {c:"var(--warn)", soft:"var(--warn-soft)", icon:"✓", label:t.likely};
+    return {c:"var(--mute)", soft:"var(--mute-soft)", icon:"?", label:t.unconfirmed};
+  }
+
+  decorate = (p, i)=>{
+    const m = this.tierMeta(p.tier);
+    const unknown = p.license === "unknown";
+    return Object.assign({}, p, {
+      tierColor:m.c, tierIcon:m.icon, tierLabel:m.label,
+      licenseLabel: unknown ? this.T().unknownLicense : p.license,
+      licenseColor: unknown ? "var(--mute)" : "var(--ink-3)",
+      phStyle:"position:relative;height:"+p.h+"px;border-radius:16px;overflow:hidden;background:repeating-linear-gradient(135deg,var(--ph1) 0 9px,var(--ph2) 9px 18px)",
+      badgeStyle:"position:absolute;top:9px;left:9px;display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:500;background:"+m.soft+";color:"+m.c,
+      onClick: ()=>this.setState({openIdx:i, dupOpen:false, reported:false})
+    });
+  };
+
+  renderVals(){
+    const st = this.state, t = this.T(), u = this.uni(), en = st.lang === "en";
+    const secs = (st.elapsedMs/1000).toFixed(1);
+
+    const navKeys = ["search","disamb","notfound","loading","profile","compare","error","guide","wardrobe"];
+    const navLabels = t.nav.concat([en ? GEN.navGuide : GRU.navGuide, en ? GEN.navWardrobe : GRU.navWardrobe]);
+    const navBase = "padding:5px 8px;font-size:12.5px;border:none;border-radius:6px;cursor:pointer;background:transparent;";
+    const screenNav = navKeys.map((k,i)=>({
+      label:navLabels[i], onClick:()=>this.go(k),
+      style: navBase + (st.screen===k ? "color:var(--ink);font-weight:500" : "color:var(--ink-3)")
+    }));
+
+    const segBase = "padding:6px 13px;font-size:12.5px;border:none;border-radius:999px;cursor:pointer;";
+    const seg = (on)=>segBase + (on ? "background:var(--surface-2);color:var(--ink);font-weight:500" : "background:transparent;color:var(--ink-3)");
+
+    const q = st.query.trim().toLowerCase();
+    const matches = q ? UNIS.filter(x=>(x.name+" "+x.aliases+" "+x.city).toLowerCase().includes(q)) : [];
+
+    const stepStates = [4200, 7000, 11500, 13500, 16000, 18400];
+    const steps = t.stepNames.map((label,i)=>{
+      const done = st.elapsedMs >= stepStates[i];
+      const active = !done && (i === 0 || st.elapsedMs >= stepStates[i-1]);
+      const col = done ? "var(--ok)" : active ? "var(--accent)" : "var(--ink-3)";
+      return {
+        label, icon: done ? "✓" : active ? "•" : "",
+        note: done ? ((stepStates[i]/1000).toFixed(1)+" с") : active ? (en?"running":"идёт") : "",
+        dotStyle:"width:18px;height:18px;flex:0 0 18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:1px solid "+col+";color:"+col+(active?";animation:vc-pulse 1.1s ease-in-out infinite":""),
+        labelStyle:"font-size:13.5px;color:"+(done||active ? "var(--ink)" : "var(--ink-3)")+";font-weight:"+(active?"500":"400")
+      };
+    });
+
+    const srcDefs = [
+      {name:"Wikimedia Commons", at:5200, status:"ok", count:23},
+      {name:"OpenStreetMap", at:6100, status:"ok", count:4},
+      {name:"Flickr", at:9800, status:"unavailable", count:0},
+      {name:"Mapillary", at:7400, status:"ok", count:6},
+      {name:en?"Official website":"Официальный сайт", at:8200, status:"ok", count:7},
+      {name:en?"Web search":"Веб-поиск", at:12000, status:"timeout", count:2}
+    ];
+    const sources = srcDefs.map(s=>{
+      const settled = st.screen !== "loading" || st.elapsedMs >= s.at;
+      const kind = settled ? s.status : "loading";
+      const col = kind==="ok" ? "var(--ok)" : kind==="loading" ? "var(--accent)" : kind==="timeout" ? "var(--warn)" : "var(--mute)";
+      const lbl = kind==="ok" ? (t.stOk+" · "+s.count) : kind==="loading" ? t.stLoading : kind==="timeout" ? t.stTimeout : t.stUnavail;
+      return {
+        name:s.name, stateLabel:lbl,
+        chipStyle:"display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;color:var(--ink-2);width:100%;border-bottom:1px solid var(--line)",
+        stateStyle:"font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.03em;color:"+col+(kind==="loading"?";animation:vc-pulse 1.1s ease-in-out infinite":"")
+      };
+    });
+
+    const streamPhotos = PHOTOS.slice(0, st.revealed).map(p=>({
+      phStyle:"height:"+p.h+"px;background:repeating-linear-gradient(135deg,var(--ph1) 0 9px,var(--ph2) 9px 18px)"
+    }));
+
+    const tabKeys = ["all"].concat(CATS);
+    const tabBase = "display:flex;align-items:center;gap:7px;padding:9px 12px;font-size:13.5px;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px;";
+    const tabs = tabKeys.map((k,i)=>{
+      const on = st.tab === k;
+      const count = k === "all" ? PHOTOS.filter(p=>p.tier!=="unconfirmed"||st.showUnconfirmed).length
+                                : PHOTOS.filter(p=>p.category===k && (p.tier!=="unconfirmed"||st.showUnconfirmed)).length;
+      return {
+        label:t.tabs[i], count, onClick:()=>this.setState({tab:k}),
+        style: tabBase + (on ? "color:var(--ink);font-weight:500;border-bottom-color:var(--accent)" : "color:var(--ink-3)"),
+        countStyle:"font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-3)"
+      };
+    });
+
+    const chips = t.chips.map((label,i)=>{
+      const on = st.activeChips.indexOf(i) >= 0;
+      return {
+        label, onClick:()=>this.setState(s=>({activeChips: on ? s.activeChips.filter(x=>x!==i) : s.activeChips.concat(i)})),
+        style:"padding:7px 14px;font-size:13px;border-radius:999px;cursor:pointer;border:none;background:"+(on?"var(--accent-soft)":"var(--surface-2)")+";color:"+(on?"var(--accent)":"var(--ink-2)")
+      };
+    });
+
+    const list = this.visiblePhotos();
+    const photos = list.map(this.decorate);
+    const op = st.openIdx >= 0 && list[st.openIdx] ? this.decorate(list[st.openIdx], st.openIdx) : null;
+    let openPhoto = null;
+    if (op){
+      const m = this.tierMeta(op.tier);
+      openPhoto = Object.assign({}, op, {
+        badgeStyleStatic:"display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:7px;font-size:12px;font-weight:500;background:"+m.soft+";color:"+m.c+";border:1px solid "+m.c,
+        barStyle:"height:100%;width:"+op.confidence+"%;background:"+m.c,
+        dupCount:op.duplicates.length,
+        evidence:op.evidence.map(e=>({
+          icon:e.icon, label: en ? e.labelEn : e.label,
+          weightLabel:(e.weight>0?"+":"")+e.weight,
+          weightColor: e.weight>0 ? "var(--ok)" : "var(--warn)",
+          rowStyle:"display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)"
+        })),
+        duplicates:op.duplicates
+      });
+    }
+
+    const summaryRu = "Кампус Korea University расположен в районе Анам на севере Сеула и занимает около 0,6 км². Ядро кампуса — каменные корпуса начала XX века вокруг главной площади, вокруг них — библиотека, лаборатории и спортивный комплекс. Студенческая жизнь сосредоточена в кварталах Анам-донг сразу за воротами: кафе, книжные, недорогие столовые. Общежития стоят на склоне холма к западу от учебных корпусов.";
+    const summaryEn = "The Korea University campus sits in the Anam district of northern Seoul and covers roughly 0.6 km². Early-20th-century stone buildings frame the main square, with the library, laboratories and sports complex around them. Student life concentrates in Anam-dong right outside the gates: cafés, bookshops, cheap canteens. Dormitories stand on the hillside west of the teaching buildings.";
+
+    const compareCols = [UNIS[0], UNIS[1]].map(x=>({
+      name:x.name, flag:x.flag, place:this.placeOf(x),
+      rows:[
+        {label:t.rowDistance, value:x.distance.toFixed(1)+(en?" km":" км")},
+        {label:t.rowClimate, value: en ? x.climateEn : x.climate},
+        {label:t.rowVerified, value: x.id==="ku" ? "27" : "19"},
+        {label:t.rowSources, value: x.id==="ku" ? "4 / 6" : "5 / 6"}
+      ],
+      cats: CATS.map((c,i)=>{
+        const n = x.id==="ku" ? [9,0,6,7,5][i] : [7,3,4,3,2][i];
+        return {
+          label:t.tabs[i+1], count:n,
+          barStyle:"height:100%;width:"+Math.min(100, n*10)+"%;background:var(--accent);border-radius:2px",
+          previews: Array.from({length:Math.min(3, n)}).map(()=>({
+            style:"flex:1;height:34px;border-radius:5px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,var(--ph1) 0 7px,var(--ph2) 7px 14px)"
+          }))
+        };
+      })
+    }));
+
+    return Object.assign(this.mapVals(t, en, u), this.guideVals(t, en, u), {
+      t, lang:st.lang, themeLabel: st.theme==="light" ? t.theme[0] : t.theme[1],
+      setRu:()=>this.setState({lang:"ru"}), setEn:()=>this.setState({lang:"en"}),
+      ruStyle:seg(st.lang==="ru"), enStyle:seg(st.lang==="en"),
+      toggleTheme:()=>this.setState(s=>({theme:s.theme==="light"?"dark":"light"})),
+      screenNav,
+      isSearch:st.screen==="search", isDisamb:st.screen==="disamb", isNotFound:st.screen==="notfound",
+      isLoading:st.screen==="loading", isProfile:st.screen==="profile", isCompare:st.screen==="compare", isError:st.screen==="error",
+      query:st.query,
+      onQuery:(e)=>this.setState({query:e.target.value}),
+      onQueryKey:(e)=>{ if (e.key === "Enter") this.submit(); },
+      submit:this.submit,
+      showSuggest: matches.length > 0 && st.query.trim().length > 0,
+      suggestions: matches.map(x=>({
+        name:x.name, flag:x.flag, place:this.placeOf(x),
+        onClick:()=>{ this.setState({query:x.name, uniId:x.id}); this.go("loading"); }
+      })),
+      examples: UNIS.map(x=>({name:x.name, onClick:()=>{ this.setState({query:x.name, uniId:x.id}); this.go("loading"); }})),
+      queryEcho: (en?"query: ":"запрос: ") + (st.query || "korea univercity"),
+      candidates: UNIS.slice(0,3).map(x=>({
+        name:x.name, flag:x.flag, place:this.placeOf(x), aliases:x.aliases,
+        onClick:()=>{ this.setState({uniId:x.id}); this.go("loading"); }
+      })),
+      goNotFound:()=>this.setState({screen:"notfound"}),
+      goSearch:()=>this.go("search"),
+      tryAgain:this.submit,
+      elapsed: secs + (en ? " s" : " с"),
+      steps, sources, streamPhotos,
+      uni:{
+        name:u.name, flag:u.flag, place:this.placeOf(u), website:u.website,
+        websiteLabel:u.website.replace("https://",""), distanceLabel:u.distance.toFixed(1)+(en?" km":" км")
+      },
+      genInLabel: t.genIn + " " + (st.elapsedMs ? (st.elapsedMs/1000).toFixed(1) : "18.4") + (en?" s":" с"),
+      summaryStats:[
+        {value:"42", label:t.statPhotos, color:"var(--ink)"},
+        {value:"27", label:t.statVerified, color:"var(--ok)"},
+        {value:"11", label:t.statLikely, color:"var(--warn)"},
+        {value:"4", label:t.statHidden, color:"var(--mute)"}
+      ],
+      summaryText: en ? summaryEn : summaryRu,
+      citations:[
+        {n:1, title:"Wikimedia Commons — Korea University", url:"https://commons.wikimedia.org"},
+        {n:2, title:"OpenStreetMap — Korea University campus", url:"https://www.openstreetmap.org"}
+      ],
+      hasBanner: st.banner, dismissBanner:()=>this.setState({banner:false}),
+      tabs, chips,
+      sortByConf:()=>this.setState({sort:"confidence"}), sortByDate:()=>this.setState({sort:"date"}),
+      sortConfStyle:seg(st.sort==="confidence"), sortDateStyle:seg(st.sort==="date"),
+      showUnconfirmed:st.showUnconfirmed,
+      toggleUnconfirmed:()=>this.setState(s=>({showUnconfirmed:!s.showUnconfirmed, openIdx:-1})),
+      isEmptyCategory: list.length === 0,
+      searchedIn:["Wikimedia Commons","OpenStreetMap","Mapillary", en?"Official website":"Официальный сайт", en?"Web search":"Веб-поиск"],
+      photos,
+      hasOpenPhoto: !!openPhoto, openPhoto,
+      closePhoto:()=>this.setState({openIdx:-1}),
+      stopProp:(e)=>e.stopPropagation(),
+      nextPhoto:()=>this.step(1), prevPhoto:()=>this.step(-1),
+      dupOpen:st.dupOpen, dupCaret: st.dupOpen ? "▴" : "▾",
+      toggleDup:()=>this.setState(s=>({dupOpen:!s.dupOpen})),
+      report:()=>this.setState({reported:true}),
+      reportLabel: st.reported ? t.reported : t.report,
+      retry:()=>this.go("loading"),
+      errCode:"ERR_NETWORK · 503 · verification-service",
+      compareCols
+    });
+  }
+
+  /* ---------- Гид Кампи ---------- */
+
+  brand(){
+    const b = BRAND[this.state.uniId] || BRAND.ku;
+    return b.primary ? b : Object.assign({}, b, {primary:"#5f66c7", secondary:"#f4f4f2"});
+  }
+
+  setMascot = (s, back)=>{
+    clearTimeout(this.mascotTimer);
+    this.setState({mascot:s});
+    if (back) this.mascotTimer = setTimeout(()=>this.setState({mascot:"idle"}), back);
+  };
+
+  openChat = ()=>{
+    this.setState({chatOpen:true, bounce:false});
+    this.setMascot("hello", 2600);
+  };
+
+  setOutfit = (part, val)=>{
+    this.setState(s=>({outfit:Object.assign({}, s.outfit, {[part]:val})}));
+    this.setMascot("changing", 700);
+  };
+
+  randomOutfit = ()=>{
+    const pick = (a)=>a[Math.floor(Math.random()*a.length)];
+    this.setState({outfit:{top:pick(["hoodie","tshirt","varsity"]), head:pick(["cap","none"]), accessory:pick(["backpack","scarf","none"])}});
+    this.setMascot("changing", 800);
+  };
+
+  ask = (key, label)=>{
+    clearInterval(this.chatTimer);
+    const en = this.state.lang === "en";
+    const qa = (QA[key] || QA.unknown);
+    const answer = en ? qa.en : qa.ru;
+    const user = {role:"user", text:label};
+    const bot = {role:"assistant", text:"", full:answer, citations:qa.citations||[], actions:qa.actions||[],
+      mascot_state:qa.state, streaming:true, checked: qa.checked ? (en?QA_CHECKED_EN:QA_CHECKED_RU) : null};
+    this.setState(s=>({chatMsgs:s.chatMsgs.concat([user, bot]), chatInput:"", chatBusy:true, chatError:false}));
+    this.setMascot("thinking");
+    setTimeout(()=>{
+      this.setMascot("talking");
+      let i = 0;
+      this.chatTimer = setInterval(()=>{
+        i = Math.min(answer.length, i + 3);
+        this.setState(s=>{
+          const msgs = s.chatMsgs.slice();
+          const last = Object.assign({}, msgs[msgs.length-1], {text:answer.slice(0,i), streaming:i < answer.length});
+          msgs[msgs.length-1] = last;
+          return {chatMsgs:msgs};
+        });
+        if (i >= answer.length){
+          clearInterval(this.chatTimer);
+          this.setState({chatBusy:false});
+          this.setMascot(qa.state === "dont_know" ? "dont_know" : (qa.actions && qa.actions.length ? "pointing" : "idle"), 3500);
+        }
+      }, 26);
+    }, 900);
+  };
+
+  chatSend = ()=>{
+    const v = this.state.chatInput.trim();
+    if (!v || this.state.chatBusy) return;
+    const key = Object.keys(QA).find(k=>QA[k].match && QA[k].match.some(w=>v.toLowerCase().includes(w)));
+    this.ask(key || "unknown", v);
+  };
+
+  runAction = (a)=>{
+    this.setMascot("pointing", 2600);
+    if (a.type === "map"){ this.setState({section:"map", buildingId:a.building_id || null, mapMode:"2d", chatOpen:false}); this.enterMap(); if (a.building_id) setTimeout(()=>this.selectBuilding(a.building_id), 900); }
+    if (a.type === "tab") this.setState({section:"photos", tab:a.tab, chatOpen:false});
+  };
+
+  savePng = ()=>{
+    const wrap = document.getElementById("mascot-export");
+    if (!wrap) return;
+    const svg = wrap.querySelector("svg");
+    const b = this.brand();
+    const xml = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    img.onload = ()=>{
+      const W = 800, H = 1000, c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const x = c.getContext("2d");
+      const grad = x.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, b.primary); grad.addColorStop(1, b.secondary);
+      x.fillStyle = grad; x.fillRect(0, 0, W, H);
+      const ih = H*0.78, iw = ih*(160/248);
+      x.drawImage(img, (W-iw)/2, H*0.1, iw, ih);
+      x.fillStyle = b.secondary; x.font = "600 "+Math.round(ih*0.072)+"px Instrument Sans, Helvetica, sans-serif";
+      x.textAlign = "center";
+      x.fillText(b.label, W/2, H*0.1 + ih*0.62);
+      x.fillStyle = "rgba(0,0,0,.45)"; x.font = "500 20px JetBrains Mono, monospace";
+      x.fillText("DEMO DATA · неофициальный мерч", W/2, H-34);
+      const a = document.createElement("a");
+      a.download = "kampi-"+this.state.uniId+".png";
+      a.href = c.toDataURL("image/png");
+      a.click();
+    };
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(xml)));
+  };
+
+  guideVals(t, en, u){
+    const st = this.state, g = en ? GEN : GRU, b = this.brand();
+    const brandRaw = BRAND[st.uniId] || BRAND.ku;
+    const chips = (en ? QA_CHIPS_EN : QA_CHIPS_RU);
+
+    const msgs = st.chatMsgs.map((msg,i)=>{
+      if (msg.role === "user") return {
+        isUser:true, text:msg.text,
+        rowStyle:"display:flex;justify-content:flex-end",
+        bubbleStyle:"max-width:82%;padding:10px 15px;border-radius:18px 18px 5px 18px;background:var(--surface-2);font-size:13.5px;line-height:1.5"
+      };
+      return {
+        isUser:false, text:msg.text, streaming:msg.streaming,
+        rowStyle:"display:flex;flex-direction:column;gap:9px",
+        bubbleStyle:"max-width:94%;font-size:13.5px;line-height:1.65;white-space:pre-wrap;color:var(--ink)",
+        citations:(msg.citations||[]).map(c=>({n:c.n, title:c.title, url:c.url, domain:c.url.replace("https://","").split("/")[0]})),
+        hasCitations:(msg.citations||[]).length > 0 && !msg.streaming,
+        checked:msg.checked, hasChecked: !!msg.checked && !msg.streaming,
+        actions: !msg.streaming ? (msg.actions||[]).filter(a=>a.type !== "photos").map(a=>({
+          label: a.type === "map" ? g.actMap : (g.actTab + " " + t.tabs[["campus","dorms","classrooms","libraries","city"].indexOf(a.tab)+1]),
+          onClick:()=>this.runAction(a)
+        })) : [],
+        photos: !msg.streaming ? (msg.actions||[]).filter(a=>a.type === "photos").reduce((acc,a)=>acc.concat(a.photo_ids),[]).map(id=>{
+          const p = PHOTOS.find(x=>x.id === id); if (!p) return null;
+          const meta = this.tierMeta(p.tier);
+          return {
+            id, placeholder:p.placeholder, tierIcon:meta.icon, tierLabel:meta.label, confidence:p.confidence,
+            onClick:()=>{ this.setMascot("pointing", 2200); this.setState({chatOpen:false}); this.openPhotoById(id); },
+            thumbStyle:"position:relative;flex:0 0 124px;height:88px;border-radius:9px;overflow:hidden;cursor:pointer;background:repeating-linear-gradient(135deg,var(--ph1) 0 8px,var(--ph2) 8px 16px)",
+            badgeStyle:"position:absolute;top:6px;left:6px;display:flex;gap:4px;align-items:center;padding:3px 6px;border-radius:5px;font-size:10px;font-weight:500;background:"+meta.soft+";color:"+meta.c
+          };
+        }).filter(Boolean) : []
+      };
+    });
+
+    const wardrobeCats = [
+      {key:"top", label:g.catTop, options:[{v:"hoodie",l:g.hoodie},{v:"tshirt",l:g.tshirt},{v:"varsity",l:g.varsity}]},
+      {key:"head", label:g.catHead, options:[{v:"cap",l:g.cap},{v:"none",l:g.none}]},
+      {key:"accessory", label:g.catAcc, options:[{v:"backpack",l:g.backpack},{v:"scarf",l:g.scarf},{v:"none",l:g.none}]}
+    ];
+    const cat = wardrobeCats.find(c=>c.key === st.wardrobeCat) || wardrobeCats[0];
+
+    return {
+      g, mascotName:"Кампи",
+      isGuide: st.screen === "guide", isWardrobe: st.screen === "wardrobe",
+      mascotState:st.mascot, outfitTop:st.outfit.top, outfitHead:st.outfit.head, outfitAcc:st.outfit.accessory,
+      brandPrimary:b.primary, brandSecondary:b.secondary, brandLabel:b.label,
+      brandSourceLabel: brandRaw.primary ? (g.colorsFrom + ": " + (brandRaw.source === "wikidata" ? "Wikidata" : g.officialSite)) : g.colorsNotFound,
+      brandSourceUrl: brandRaw.source_url || "#",
+      brandHasSource: !!brandRaw.primary,
+      guideVisible: !st.guideHidden, guideHidden:st.guideHidden,
+      hideGuide:()=>this.setState({guideHidden:true, chatOpen:false}),
+      showGuide:()=>this.setState({guideHidden:false}),
+      greetBubble: g.greet.replace("{uni}", u.name),
+      openChat:this.openChat, chatOpen:st.chatOpen,
+      closeChat:()=>{ this.setMascot("idle"); this.setState({chatOpen:false}); },
+      showFab: !st.guideHidden && !st.chatOpen,
+      fabStyle:"position:fixed;right:20px;bottom:20px;z-index:45;width:62px;height:62px;border-radius:50%;overflow:hidden;"+
+
+        "border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);cursor:pointer;padding:0;"+
+        (st.bounce ? "animation:vc-bounce 1.6s ease-in-out 3" : ""),
+      chatMsgsView:msgs, chatEmpty: msgs.length === 0,
+      chatBodyRef:(el)=>{ this.chatBody = el; },
+      chatChips: chips.map(c=>({label:c.label, onClick:()=>this.ask(c.key, c.label),
+        style:"flex:0 0 auto;white-space:nowrap;padding:7px 12px;font-size:12.5px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--ink-2);cursor:pointer"})),
+      chatInput:st.chatInput, chatBusy:st.chatBusy,
+      onChatInput:(e)=>this.setState({chatInput:e.target.value}),
+      onChatKey:(e)=>{ if (e.key === "Enter") this.chatSend(); },
+      chatSend:this.chatSend,
+      chatError:st.chatError,
+      failChat:()=>{ clearInterval(this.chatTimer); this.setState({chatError:true, chatBusy:false}); this.setMascot("dont_know"); },
+      retryChat:()=>{ this.setState({chatError:false}); this.ask("dorms", (en?QA_CHIPS_EN:QA_CHIPS_RU)[0].label); },
+      stateSheet: MASCOT_STATES.map(s=>({
+        key:s.key, label: en ? s.en : s.ru, note: en ? s.noteEn : s.note,
+        onClick:()=>this.setMascot(s.key)
+      })),
+      wardrobeCats: wardrobeCats.map(c=>({
+        label:c.label, onClick:()=>this.setState({wardrobeCat:c.key}),
+        style:"display:flex;width:100%;padding:9px 0;background:transparent;border:none;border-bottom:1px solid var(--line);cursor:pointer;text-align:left;"+
+          "font-size:13.5px;color:"+(st.wardrobeCat===c.key?"var(--ink)":"var(--ink-3)")+";font-weight:"+(st.wardrobeCat===c.key?"500":"400")
+      })),
+      wardrobeOptions: cat.options.map(o=>({
+        label:o.l, onClick:()=>this.setOutfit(cat.key, o.v),
+        style:"padding:11px 18px;font-size:13px;border-radius:999px;cursor:pointer;border:none;"+
+          "background:"+(st.outfit[cat.key]===o.v?"var(--accent-soft)":"var(--surface-2)")+";"+
+          "color:"+(st.outfit[cat.key]===o.v?"var(--accent)":"var(--ink-2)")
+      })),
+      randomOutfit:this.randomOutfit, savePng:this.savePng,
+      wardrobeBgStyle:"border-radius:14px;background:linear-gradient(170deg,"+b.primary+" 0%,"+b.secondary+" 100%);padding:22px 0 0;display:flex;justify-content:center",
+      compareMascots:[
+        {label:BRAND.ku.label, primary:BRAND.ku.primary, secondary:BRAND.ku.secondary, name:UNIS[0].name},
+        {label:BRAND.kaist.label, primary:BRAND.kaist.primary, secondary:BRAND.kaist.secondary, name:UNIS[1].name}
+      ]
+    };
+  }
+
+  /* ---------- Карта кампуса ---------- */
+
+  enterMap = ()=>{
+    this.setState({section:"map", mapReady:false});
+    clearTimeout(this.mapTimer);
+    this.mapTimer = setTimeout(()=>this.setState({mapReady:true}), 850);
+  };
+
+  setMode = (m)=>{
+    if (m === "3d" && this.state.no3d) { this.setState({mapMode:"2d"}); return; }
+    this.setState({mapMode:m, flyover:false, pinId:null});
+    clearInterval(this.flyTimer);
+  };
+
+  toggleFlyover = ()=>{
+    clearInterval(this.flyTimer);
+    const on = !this.state.flyover;
+    this.setState({flyover:on});
+    if (on) this.flyTimer = setInterval(()=>this.setState(s=>({bearing:(s.bearing+0.8)%360})), 60);
+  };
+
+  selectBuilding = (id)=>this.setState({buildingId:id, pinId:null, zoom:1.7, sheetOpen:true});
+
+  openPhotoById = (id)=>{
+    const find = ()=>{
+      const i = this.visiblePhotos().findIndex(p=>p.id === id);
+      if (i >= 0) this.setState({openIdx:i, dupOpen:false, reported:false});
+    };
+    const i = this.visiblePhotos().findIndex(p=>p.id === id);
+    if (i >= 0) this.setState({openIdx:i, dupOpen:false, reported:false});
+    else this.setState({tab:"all", showUnconfirmed:true}, find);
+  };
+
+  mapVals(t, en, u){
+    const st = this.state, m = en ? MEN : MRU;
+    const P = (lng,lat)=>({ x:(lng-MAP.bbox.w)/(MAP.bbox.e-MAP.bbox.w)*100, y:(MAP.bbox.n-lat)/(MAP.bbox.n-MAP.bbox.s)*100 });
+    const bboxOf = (poly)=>{
+      const xs = poly.map(p=>P(p[0],p[1]).x), ys = poly.map(p=>P(p[0],p[1]).y);
+      const x1 = Math.min.apply(null,xs), x2 = Math.max.apply(null,xs);
+      const y1 = Math.min.apply(null,ys), y2 = Math.max.apply(null,ys);
+      return {l:x1, t:y1, w:x2-x1, h:y2-y1, cx:(x1+x2)/2, cy:(y1+y2)/2};
+    };
+
+    const zoomed = st.zoom >= 1.35;
+    const sel = MAP.buildings.find(b=>b.id === st.buildingId) || null;
+    const origin = sel ? bboxOf(sel.polygon) : {cx:50, cy:50};
+
+    const buildings = MAP.buildings.filter(b=>st.layers[b.type] !== false).map(b=>{
+      const box = bboxOf(b.polygon);
+      const c = TYPE_COLOR[b.type];
+      const on = b.id === st.buildingId;
+      const h = st.noHeights ? 18 : (b.height_m || 12);
+      return {
+        id:b.id, name:b.name, type:b.type, cx:box.cx, cy:box.cy,
+        onClick:()=>this.selectBuilding(b.id),
+        boxStyle:"position:absolute;left:"+box.l+"%;top:"+box.t+"%;width:"+box.w+"%;height:"+box.h+"%;"+
+          "background:"+c+";opacity:"+(b.inside===false?0.28:(on?0.95:0.6))+";border-radius:3px;cursor:pointer;"+
+          "box-shadow:"+(on?"0 0 0 2px var(--ink)":"none"),
+        labelStyle:"position:absolute;left:"+box.cx+"%;top:"+(box.t+box.h)+"%;transform:translate(-50%,3px) scale("+(1/st.zoom).toFixed(2)+");"+
+          "white-space:nowrap;font-size:9.5px;letter-spacing:.01em;color:var(--ink-2);pointer-events:none;"+
+          "opacity:"+(zoomed && b.inside !== false ? 1 : 0)+";transition:opacity .2s",
+        layers: Array.from({length: Math.max(2, Math.min(12, Math.round(h/4)))}).map((_,i,arr)=>({
+          style:"position:absolute;left:"+box.l+"%;top:"+box.t+"%;width:"+box.w+"%;height:"+box.h+"%;border-radius:2px;"+
+            "background:"+(b.inside===false?"var(--line-2)":c)+";opacity:"+(b.inside===false?0.5:(0.42+0.5*(i/arr.length)))+";"+
+            "transform:translateZ("+(i*3.4)+"px);cursor:pointer"
+        }))
+      };
+    });
+
+    const pinsRaw = MAP.photo_pins.filter(p=>p.tier !== "unconfirmed" || st.showUnconfirmedPins);
+    let pinItems = [];
+    if (st.showPins){
+      if (!zoomed){
+        const cells = {};
+        pinsRaw.forEach(p=>{
+          const pt = P(p.lng, p.lat), k = Math.round(pt.x/13)+"_"+Math.round(pt.y/13);
+          (cells[k] = cells[k] || []).push({p, pt});
+        });
+        Object.keys(cells).forEach(k=>{
+          const g = cells[k];
+          const cx = g.reduce((a,i)=>a+i.pt.x,0)/g.length, cy = g.reduce((a,i)=>a+i.pt.y,0)/g.length;
+          if (g.length > 1) pinItems.push({cluster:true, count:g.length, x:cx, y:cy, p:g[0].p});
+          else pinItems.push({cluster:false, x:cx, y:cy, p:g[0].p});
+        });
+      } else pinsRaw.forEach(p=>{ const pt = P(p.lng, p.lat); pinItems.push({cluster:false, x:pt.x, y:pt.y, p}); });
+    }
+
+    const pinView = pinItems.map(it=>{
+      const meta = this.tierMeta(it.p.tier);
+      const scale = (1/st.zoom).toFixed(2);
+      return {
+        clusterCount: it.cluster ? String(it.count) : "",
+        isCluster: it.cluster,
+        onClick:()=>{
+          if (it.cluster) this.setState({zoom:1.8, pinId:null, buildingId:null});
+          else this.setState({pinId:it.p.photo_id, buildingId:null, sheetOpen:true});
+        },
+        pinStyle:"position:absolute;left:"+it.x+"%;top:"+it.y+"%;transform:translate(-50%,-50%) scale("+scale+");width:"+(it.cluster?30:26)+"px;height:"+(it.cluster?30:26)+"px;"+
+          "border-radius:50%;border:2px solid "+(it.cluster?"var(--ink-2)":meta.c)+";cursor:pointer;display:flex;align-items:center;justify-content:center;"+
+          "font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);"+
+          "background:"+(it.cluster?"var(--surface)":"repeating-linear-gradient(135deg,var(--ph1) 0 5px,var(--ph2) 5px 10px)")+";"+
+          "box-shadow:0 1px 4px rgba(0,0,0,.18)",
+        flagStyle:"position:absolute;left:"+it.x+"%;top:"+it.y+"%;width:2px;height:26px;background:"+meta.c+";opacity:.8;"+
+          "transform:translate(-50%,-100%) rotateZ("+(-st.bearing)+"deg) rotateX("+(-st.tilt)+"deg);transform-origin:bottom center",
+        flagHeadStyle:"position:absolute;left:"+it.x+"%;top:"+it.y+"%;width:20px;height:20px;border-radius:50%;border:2px solid "+meta.c+";"+
+          "background:repeating-linear-gradient(135deg,var(--ph1) 0 5px,var(--ph2) 5px 10px);cursor:pointer;"+
+          "transform:translate(-50%,-50%) translateZ(34px) rotateZ("+(-st.bearing)+"deg) rotateX("+(-st.tilt)+"deg)",
+        coneStyle: it.p.heading_deg === null ? "display:none" :
+          "position:absolute;left:"+it.x+"%;top:"+it.y+"%;width:46px;height:46px;background:"+meta.c+";opacity:.16;"+
+          "clip-path:polygon(50% 100%, 0% 0%, 100% 0%);transform:translate(-50%,-100%) rotate("+(it.p.heading_deg+180)+"deg);transform-origin:bottom center"
+      };
+    });
+
+    const panoPaths = st.showPano && !st.noPano ? MAP.pano_paths.reduce((acc, path)=>{
+      for (let i = 0; i < path.length-1; i++){
+        const a = P(path[i][0], path[i][1]), b = P(path[i+1][0], path[i+1][1]);
+        const dx = b.x-a.x, dy = b.y-a.y;
+        acc.push({style:"position:absolute;left:"+a.x+"%;top:"+a.y+"%;width:"+Math.sqrt(dx*dx+dy*dy)+"%;height:3px;"+
+          "background:oklch(0.6 0.13 250);opacity:.5;border-radius:2px;transform-origin:0 50%;"+
+          "transform:rotate("+(Math.atan2(dy,dx)*180/Math.PI)+"deg)"});
+      }
+      return acc;
+    }, []) : [];
+
+    const transit = st.showTransit ? MAP.campus.transit.map(x=>{
+      const pt = P(x.lng, x.lat);
+      return {
+        label:x.type === "metro" ? "M" : "B", name:x.name, walk:x.walk_min+(en?" min":" мин"),
+        style:"position:absolute;left:"+pt.x+"%;top:"+pt.y+"%;transform:translate(-50%,-50%) scale("+(1/st.zoom).toFixed(2)+");"+
+          "width:18px;height:18px;border-radius:5px;background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2);"+
+          "display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9.5px"
+      };
+    }) : [];
+
+    const ang = Math.atan2(MAP.campus.city_center.lat - MAP.campus.center.lat, MAP.campus.city_center.lng - MAP.campus.center.lng);
+    const cc = {x:50 + Math.cos(ang)*44, y:50 - Math.sin(ang)*44};
+    const dLine = {x:cc.x-50, y:cc.y-50};
+
+    const counts = {};
+    MAP.buildings.filter(b=>b.inside !== false).forEach(b=>{ counts[b.type] = (counts[b.type]||0)+1; });
+    const groups = Object.keys(TYPE_COLOR).filter(k=>counts[k]).map(k=>({
+      type:k, label:m.types[k], color:TYPE_COLOR[k], count:counts[k],
+      dotStyle:"width:8px;height:8px;border-radius:2px;background:"+TYPE_COLOR[k],
+      items: MAP.buildings.filter(b=>b.type === k && b.inside !== false)
+        .filter(b=>!st.buildingQuery || b.name.toLowerCase().includes(st.buildingQuery.toLowerCase()))
+        .map(b=>({
+          name:b.name, onClick:()=>this.selectBuilding(b.id),
+          style:"display:flex;width:100%;gap:8px;align-items:center;padding:7px 0;background:transparent;border:none;border-bottom:1px solid var(--line);"+
+            "cursor:pointer;text-align:left;font-size:13px;color:"+(b.id===st.buildingId?"var(--accent)":"var(--ink-2)"),
+          photoCount: b.photo_ids.length ? String(b.photo_ids.length) : ""
+        }))
+    })).filter(g=>g.items.length || !st.buildingQuery);
+
+    const layerChips = Object.keys(TYPE_COLOR).map(k=>({
+      label:m.types[k], onClick:()=>this.setState(s=>({layers:Object.assign({}, s.layers, {[k]:!s.layers[k]})})),
+      style:"display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;border-radius:999px;cursor:pointer;border:none;"+
+        "background:var(--surface-2);color:"+(st.layers[k]?"var(--ink-2)":"var(--ink-3)")+";opacity:"+(st.layers[k]?1:0.5),
+      dotStyle:"width:7px;height:7px;border-radius:2px;background:"+TYPE_COLOR[k]+";opacity:"+(st.layers[k]?1:0.4)
+    }));
+
+    const tgl = (on)=>"padding:6px 12px;font-size:12px;border-radius:999px;cursor:pointer;border:none;"+
+      "background:"+(on?"var(--accent-soft)":"var(--surface-2)")+";color:"+(on?"var(--accent)":"var(--ink-3)");
+
+    const selCard = sel ? (()=>{
+      const photos = PHOTOS.filter(p=>sel.photo_ids.indexOf(p.id) >= 0).map((p,i)=>{
+        const meta = this.tierMeta(p.tier);
+        return {
+          id:p.id, placeholder:p.placeholder, tierIcon:meta.icon, tierLabel:meta.label, confidence:p.confidence,
+          onClick:()=>this.openPhotoById(p.id),
+          thumbStyle:"position:relative;flex:0 0 132px;height:92px;border-radius:8px;overflow:hidden;cursor:pointer;"+
+            "background:repeating-linear-gradient(135deg,var(--ph1) 0 8px,var(--ph2) 8px 16px)",
+          badgeStyle:"position:absolute;top:6px;left:6px;display:flex;gap:4px;align-items:center;padding:3px 6px;border-radius:5px;"+
+            "font-size:10px;font-weight:500;background:"+meta.soft+";color:"+meta.c
+        };
+      });
+      return {
+        name:sel.name, type:m.types[sel.type], typeColor:TYPE_COLOR[sel.type],
+        levels: sel.height_m && !st.noHeights ? (sel.height_m+" м · "+(sel.levels||"—")+(en?" floors":" эт.")) : m.noHeightRow,
+        photos, hasPhotos:photos.length > 0, noPhotos:photos.length === 0, emptyPhotos:m.buildingNoPhotos,
+        source:"© OpenStreetMap contributors",
+        show3d:()=>this.setMode("3d"), walkHere:()=>this.setMode("walk"),
+        clear:()=>this.setState({buildingId:null, zoom:1})
+      };
+    })() : null;
+
+    const pinPhoto = st.pinId ? PHOTOS.find(p=>p.id === st.pinId) : null;
+    const pinCard = pinPhoto ? (()=>{
+      const meta = this.tierMeta(pinPhoto.tier);
+      const pin = MAP.photo_pins.find(p=>p.photo_id === pinPhoto.id);
+      return {
+        placeholder:pinPhoto.placeholder, tierIcon:meta.icon, tierLabel:meta.label, tierColor:meta.c,
+        badgeStyle:"display:flex;gap:5px;align-items:center;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:500;background:"+meta.soft+";color:"+meta.c,
+        confidence:pinPhoto.confidence, category:t.tabs[["campus","dorms","classrooms","libraries","city"].indexOf(pinPhoto.category)+1],
+        source_domain:pinPhoto.source_domain, source_url:pinPhoto.source_url, published_at:pinPhoto.published_at,
+        heading: pin && pin.heading_deg !== null ? (m.heading+": "+pin.heading_deg+"°") : m.noHeading,
+        evidence: pinPhoto.evidence.slice(0,2).map(e=>({icon:e.icon, label: en ? e.labelEn : e.label})),
+        open:()=>this.openPhotoById(pinPhoto.id),
+        clear:()=>this.setState({pinId:null})
+      };
+    })() : null;
+
+    const pano = MAP.panoramas;
+    const panoAvailable = !st.noPano;
+    const yaw = st.yaw;
+
+    const demoStates = [
+      {label:m.dsPolygon, on:st.noPolygon, onClick:()=>this.setState(s=>({noPolygon:!s.noPolygon}))},
+      {label:m.dsHeights, on:st.noHeights, onClick:()=>this.setState(s=>({noHeights:!s.noHeights}))},
+      {label:m.dsPano, on:st.noPano, onClick:()=>this.setState(s=>({noPano:!s.noPano, panoBanner:!s.noPano}))},
+      {label:m.ds3d, on:st.no3d, onClick:()=>this.setState(s=>({no3d:!s.no3d, mapMode: !s.no3d && s.mapMode==="3d" ? "2d" : s.mapMode}))}
+    ].map(x=>({label:x.label, onClick:x.onClick, style:tgl(x.on)}));
+
+    const modeKeys = ["2d","3d","walk"];
+    const segM = (on)=>"padding:8px 15px;font-size:12.5px;border:none;border-radius:999px;cursor:pointer;"+
+      (on ? "background:var(--ink);color:var(--bg);font-weight:500" : "background:transparent;color:var(--ink-3)");
+
+    return {
+      m,
+      isPhotosSection: st.section === "photos", isMapSection: st.section === "map",
+      showLayers: st.mapMode !== "walk", showControls: st.mapMode !== "walk",
+      sectionTabs:[
+        {label:m.secPhotos, onClick:()=>this.setState({section:"photos"}),
+         style:"padding:7px 13px;font-size:13px;border:none;border-radius:7px;cursor:pointer;background:"+(st.section==="photos"?"var(--surface-2)":"transparent")+";color:"+(st.section==="photos"?"var(--ink)":"var(--ink-3)")+";font-weight:"+(st.section==="photos"?"500":"400")},
+        {label:m.secMap, onClick:this.enterMap,
+         style:"padding:7px 13px;font-size:13px;border:none;border-radius:7px;cursor:pointer;background:"+(st.section==="map"?"var(--surface-2)":"transparent")+";color:"+(st.section==="map"?"var(--ink)":"var(--ink-3)")+";font-weight:"+(st.section==="map"?"500":"400")}
+      ],
+      openMapSection:this.enterMap,
+      mapReady:st.mapReady, mapLoading: !st.mapReady, mapMode:st.mapMode,
+      noPolygonShown: st.noPolygon, panoEmptyState: st.noPano,
+      prevPano:()=>this.setState(s=>({panoIdx:Math.max(0, s.panoIdx-1), yaw:s.yaw-24})),
+      nextPano:()=>this.setState(s=>({panoIdx:Math.min(7, s.panoIdx+1), yaw:s.yaw+24})),
+      backTo3d:()=>this.setMode("3d"),
+      is2d: st.mapMode === "2d", is3d: st.mapMode === "3d", isWalk: st.mapMode === "walk",
+      modeTabs: modeKeys.map((k,i)=>({label:m.modes[i], onClick:()=>this.setMode(k), style:segM(st.mapMode === k)})),
+      buildingQuery:st.buildingQuery,
+      onBuildingQuery:(e)=>this.setState({buildingQuery:e.target.value}),
+      recenter:()=>this.setState({zoom:1, bearing:0, buildingId:null, pinId:null}),
+      layerChips,
+      pinsChip:{label:m.showPins, onClick:()=>this.setState(s=>({showPins:!s.showPins})), style:tgl(st.showPins)},
+      unconfChip:{label:t.tierToggle, onClick:()=>this.setState(s=>({showUnconfirmedPins:!s.showUnconfirmedPins})), style:tgl(st.showUnconfirmedPins)},
+      panoChip:{label:m.layerPano, onClick:()=>this.setState(s=>({showPano:!s.showPano})), style:tgl(st.showPano && !st.noPano)},
+      transitChip:{label:m.layerTransit, onClick:()=>this.setState(s=>({showTransit:!s.showTransit})), style:tgl(st.showTransit)},
+      campusPoints: MAP.campus.polygon.map(p=>{ const q = P(p[0],p[1]); return q.x.toFixed(2)+","+q.y.toFixed(2); }).join(" "),
+      hasPolygon: !st.noPolygon,
+      noPolygonNote:m.noPolygonNote,
+      centerDotStyle:"position:absolute;left:50%;top:50%;width:12px;height:12px;border-radius:50%;background:var(--accent);"+
+        "transform:translate(-50%,-50%) scale("+(1/st.zoom).toFixed(2)+");box-shadow:0 0 0 5px var(--accent-soft)",
+      surfaceStyle:"position:absolute;inset:0;transform-origin:"+origin.cx+"% "+origin.cy+"%;transform:scale("+st.zoom+");transition:transform .5s cubic-bezier(.2,.7,.2,1)",
+      surface3dStyle:"position:absolute;inset:0;transform-style:preserve-3d;transform-origin:"+origin.cx+"% "+origin.cy+"%;"+
+        "transform:rotateX("+st.tilt+"deg) rotateZ("+st.bearing+"deg) scale("+(st.zoom*0.78)+");transition:transform .25s linear",
+      buildings, pinView, panoPaths, transit,
+      cityMarkerStyle:"position:absolute;left:"+cc.x+"%;top:"+cc.y+"%;transform:translate(-5px,-50%);display:flex;align-items:center;gap:6px;white-space:nowrap",
+      cityLineStyle:"position:absolute;left:50%;top:50%;width:"+Math.sqrt(dLine.x*dLine.x+dLine.y*dLine.y)+"%;height:0;"+
+        "border-top:1px dashed var(--ink-3);opacity:.6;transform-origin:0 50%;transform:rotate("+(Math.atan2(dLine.y,dLine.x)*180/Math.PI)+"deg)",
+      cityLabel: MAP.campus.distance_to_center_km.toFixed(1)+(en?" km to centre · ~15 min by metro":" км до центра · ~15 мин на метро"),
+      cityName: MAP.campus.city_center.name,
+      areaLabel: MAP.campus.area_km2.toFixed(2)+(en?" km²":" км²"),
+      distanceLabel: MAP.campus.distance_to_center_km.toFixed(1)+(en?" km":" км"),
+      buildingCount: String(MAP.buildings.filter(b=>b.inside !== false).length),
+      groups,
+      hasSelection: !!selCard || !!pinCard,
+      selCard, pinCard, showSummary: !selCard && !pinCard,
+      zoomIn:()=>this.setState(s=>({zoom:Math.min(2.6, s.zoom*1.3)})),
+      zoomOut:()=>this.setState(s=>({zoom:Math.max(1, s.zoom/1.3)})),
+      rotateL:()=>this.setState(s=>({bearing:s.bearing-20})),
+      rotateR:()=>this.setState(s=>({bearing:s.bearing+20})),
+      tiltMore:()=>this.setState(s=>({tilt:Math.min(72, s.tilt+8)})),
+      tiltLess:()=>this.setState(s=>({tilt:Math.max(20, s.tilt-8)})),
+      toggleFlyover:this.toggleFlyover,
+      flyoverLabel: st.flyover ? m.flyoverStop : m.flyover,
+      compassStyle:"transform:rotate("+(-st.bearing)+"deg);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-2)",
+      note3d: st.noHeights ? m.no3dHeights : m.note3d,
+      no3dNote: st.no3d ? m.no3dDevice : "",
+      panoAvailable, panoBanner: st.panoBanner && st.noPano,
+      dismissPanoBanner:()=>this.setState({panoBanner:false}),
+      panoAttr: (en?"Panorama: ":"Панорама: ") + "Mapillary · " + (en?"captured ":"съёмка ") + pano.start.captured_at,
+      panoStyle:"position:absolute;inset:0;background:linear-gradient(180deg,var(--ph2) 0%,var(--ph1) 48%,var(--ph2) 100%);"+
+        "background-position:"+(-yaw*2)+"px 0;cursor:grab",
+      panoGridStyle:"position:absolute;inset:0;opacity:.5;background-image:repeating-linear-gradient(90deg,transparent 0 78px,var(--line) 78px 79px);"+
+        "background-position:"+(-yaw*2)+"px 0",
+      onPanoDrag:(e)=>{
+        if (e.buttons !== 1) return;
+        this.setState(s=>({yaw:(s.yaw + e.movementX*0.4)}));
+      },
+      panoYawLabel: (((Math.round(-yaw)%360)+360)%360)+"°",
+      panoStep:(d)=>this.setState(s=>({panoIdx:Math.max(0, s.panoIdx+d)})),
+      panoPoint: (en?"point ":"точка ") + (st.panoIdx+1) + " / 8",
+      miniConeStyle:"position:absolute;left:50%;top:50%;width:58px;height:58px;background:var(--accent);opacity:.2;"+
+        "clip-path:polygon(50% 100%, 6% 0%, 94% 0%);transform:translate(-50%,-100%) rotate("+(180 - yaw*0.6)+"deg);transform-origin:bottom center",
+      exitWalk:()=>this.setMode("2d"),
+      panoCheckedLabel: m.panoChecked + ": Mapillary, Kakao Roadview",
+      demoStates,
+      sheetOpen:st.sheetOpen,
+      toggleSheet:()=>this.setState(s=>({sheetOpen:!s.sheetOpen})),
+      sheetLabel: st.sheetOpen ? m.hidePanel : m.showPanel
+    };
+  }
+}
+
+const TYPE_COLOR = {
+  academic:"oklch(0.62 0.09 265)", dorm:"oklch(0.62 0.09 205)", library:"oklch(0.6 0.09 160)",
+  sport:"oklch(0.66 0.09 95)", lab:"oklch(0.6 0.09 305)", food:"oklch(0.68 0.09 45)", other:"oklch(0.72 0.01 265)"
+};
+
+const MRU = {
+  secPhotos:"Фото", secMap:"Карта кампуса",
+  modes:["2D карта","3D вид","Прогулка"],
+  findBuilding:"Найти здание…", recenter:"Центрировать на кампусе",
+  types:{academic:"Учебные корпуса", dorm:"Общежития", library:"Библиотеки", sport:"Спорт", lab:"Лаборатории", food:"Столовые и кафе", other:"Прочее"},
+  showPins:"Показать фото на карте", layerPano:"Панорамы", layerTransit:"Транспорт",
+  summary:"Сводка кампуса", area:"Площадь", buildingsFound:"Найдено зданий", toCenter:"До центра города",
+  buildingList:"Здания", buildingSource:"Данные о здании", buildingNoPhotos:"Проверенных фото этого здания не найдено.",
+  noHeightRow:"Высота неизвестна", show3d:"Показать в 3D", walkHere:"Прогуляться отсюда",
+  photoPin:"Точка съёмки", openPhoto:"Открыть фото", heading:"Направление съёмки", noHeading:"Направление съёмки неизвестно",
+  note3d:"3D-модель построена по данным OpenStreetMap. Высота некоторых зданий приблизительная.",
+  no3dHeights:"Для этого кампуса нет данных о высоте зданий — все здания показаны одной высотой.",
+  no3dDevice:"3D-вид не поддерживается этим устройством — показана 2D-карта.",
+  flyover:"Облёт кампуса", flyoverStop:"Остановить облёт",
+  exitWalk:"Выйти из прогулки", panoEmpty:"Для этого кампуса панорамы не найдены.",
+  panoChecked:"Проверено", backTo3d:"Вернуться к 3D-виду", panoBanner:"Панорамы временно недоступны.",
+  noPolygonNote:"Границы кампуса не найдены — фото проверяются по расстоянию от точки университета.",
+  loadingMap:"Загружаем карту кампуса…",
+  dsPolygon:"Нет контура", dsHeights:"Нет высот", dsPano:"Панорамы недоступны", ds3d:"3D не поддерживается",
+  demoStates:"ТЕСТОВЫЕ СОСТОЯНИЯ", legend:"Слои и легенда",
+  hidePanel:"Скрыть панель", showPanel:"Показать панель", walkHint:"Перетащите, чтобы осмотреться",
+  category:"Категория"
+};
+const MEN = {
+  secPhotos:"Photos", secMap:"Campus map",
+  modes:["2D map","3D view","Walk"],
+  findBuilding:"Find a building…", recenter:"Centre on campus",
+  types:{academic:"Academic", dorm:"Dormitories", library:"Libraries", sport:"Sport", lab:"Laboratories", food:"Food", other:"Other"},
+  showPins:"Show photos on map", layerPano:"Panoramas", layerTransit:"Transit",
+  summary:"Campus summary", area:"Area", buildingsFound:"Buildings found", toCenter:"To city centre",
+  buildingList:"Buildings", buildingSource:"Building data", buildingNoPhotos:"No verified photos of this building.",
+  noHeightRow:"Height unknown", show3d:"Show in 3D", walkHere:"Walk from here",
+  photoPin:"Capture point", openPhoto:"Open photo", heading:"Camera heading", noHeading:"Camera heading unknown",
+  note3d:"3D model built from OpenStreetMap data. Some building heights are approximate.",
+  no3dHeights:"No building height data for this campus — all buildings shown at one height.",
+  no3dDevice:"3D view is not supported on this device — showing the 2D map.",
+  flyover:"Fly around campus", flyoverStop:"Stop flyover",
+  exitWalk:"Exit walk", panoEmpty:"No panoramas found for this campus.",
+  panoChecked:"Checked", backTo3d:"Back to 3D view", panoBanner:"Panoramas are temporarily unavailable.",
+  noPolygonNote:"Campus boundary not found — photos are verified by distance from the university point.",
+  loadingMap:"Loading campus map…",
+  dsPolygon:"No boundary", dsHeights:"No heights", dsPano:"Panoramas down", ds3d:"No 3D support",
+  demoStates:"DEMO STATES", legend:"Layers and legend",
+  hidePanel:"Hide panel", showPanel:"Show panel", walkHint:"Drag to look around",
+  category:"Category"
+};
+
+function bld(id, name, type, lng, lat, w, h, height, levels, ids, inside){
+  return {id, name, type, height_m:height, levels, photo_ids:ids||[], source:"OpenStreetMap",
+    inside: inside !== false,
+    polygon:[[lng-w,lat-h],[lng+w,lat-h],[lng+w,lat+h],[lng-w,lat+h]]};
+}
+
+const MAP = {
+  campus:{
+    center:{lat:37.5895, lng:127.0323},
+    polygon:[[127.0268,37.5862],[127.0300,37.5845],[127.0368,37.5855],[127.0385,37.5890],[127.0370,37.5930],[127.0315,37.5938],[127.0272,37.5915]],
+    area_km2:0.61,
+    city_center:{name:"Сеул · Jongno", lat:37.5700, lng:127.0000},
+    distance_to_center_km:4.2,
+    transit:[
+      {type:"metro", name:"Anam (Korea Univ.)", lat:37.5860, lng:127.0295, walk_min:4},
+      {type:"metro", name:"Korea University", lat:37.5905, lng:127.0272, walk_min:7},
+      {type:"bus", name:"Anam-dong", lat:37.5925, lng:127.0350, walk_min:3}
+    ]
+  },
+  buildings:[
+    bld("b1","Main Hall","academic",127.0315,37.5888,0.0012,0.0008,32,7,["ph_1002","ph_1007"]),
+    bld("b2","Central Library","library",127.0342,37.5896,0.0014,0.0009,41,9,["ph_1001","ph_1005","ph_1013"]),
+    bld("b3","Science Building","academic",127.0296,37.5901,0.0010,0.0007,28,6,["ph_1004"]),
+    bld("b4","Anam Hall (dorm)","dorm",127.0281,37.5876,0.0009,0.0010,24,8,[]),
+    bld("b5","Frontier Hall (dorm)","dorm",127.0288,37.5866,0.0008,0.0007,21,7,[]),
+    bld("b6","Hwajeong Gymnasium","sport",127.0358,37.5872,0.0013,0.0010,26,4,["ph_1003"]),
+    bld("b7","Sports Field","sport",127.0336,37.5862,0.0016,0.0008,null,null,["ph_1010"]),
+    bld("b8","Research Lab A","lab",127.0362,37.5912,0.0009,0.0007,34,8,["ph_1008"]),
+    bld("b9","Research Lab B","lab",127.0350,37.5922,0.0008,0.0006,30,7,[]),
+    bld("b10","Student Union","food",127.0322,37.5908,0.0009,0.0006,18,4,["ph_1014"]),
+    bld("b11","Cafeteria","food",127.0306,37.5918,0.0008,0.0005,12,3,["ph_1009"]),
+    bld("b12","Law School","academic",127.0330,37.5878,0.0010,0.0007,25,6,[]),
+    bld("b13","Media Centre","academic",127.0300,37.5930,0.0009,0.0006,22,5,[]),
+    bld("b14","Archive Annex","library",127.0356,37.5902,0.0007,0.0005,16,4,[]),
+    bld("b15","Service Block","other",127.0290,37.5910,0.0007,0.0005,9,2,[]),
+    bld("b16","Anam-dong block","other",127.0248,37.5884,0.0012,0.0009,20,5,[],false),
+    bld("b17","Anam-dong block","other",127.0252,37.5906,0.0010,0.0008,17,5,[],false),
+    bld("b18","Jegi-dong block","other",127.0398,37.5876,0.0013,0.0010,23,6,[],false)
+  ],
+  photo_pins:[
+    {photo_id:"ph_1001", lat:37.5896, lng:127.0342, heading_deg:210, tier:"verified", confidence:94, building_id:"b2"},
+    {photo_id:"ph_1002", lat:37.5888, lng:127.0315, heading_deg:45, tier:"verified", confidence:91, building_id:"b1"},
+    {photo_id:"ph_1003", lat:37.5872, lng:127.0358, heading_deg:300, tier:"verified", confidence:88, building_id:"b6"},
+    {photo_id:"ph_1004", lat:37.5901, lng:127.0296, heading_deg:null, tier:"verified", confidence:85, building_id:"b3"},
+    {photo_id:"ph_1005", lat:37.5893, lng:127.0345, heading_deg:180, tier:"verified", confidence:82, building_id:"b2"},
+    {photo_id:"ph_1013", lat:37.5898, lng:127.0339, heading_deg:120, tier:"verified", confidence:86, building_id:"b2"},
+    {photo_id:"ph_1014", lat:37.5908, lng:127.0322, heading_deg:90, tier:"likely", confidence:77, building_id:"b10"},
+    {photo_id:"ph_1008", lat:37.5912, lng:127.0362, heading_deg:null, tier:"likely", confidence:71, building_id:"b8"},
+    {photo_id:"ph_1009", lat:37.5918, lng:127.0306, heading_deg:15, tier:"likely", confidence:68, building_id:"b11"},
+    {photo_id:"ph_1010", lat:37.5862, lng:127.0336, heading_deg:270, tier:"likely", confidence:64, building_id:"b7"},
+    {photo_id:"ph_1006", lat:37.5930, lng:127.0318, heading_deg:340, tier:"likely", confidence:79, building_id:null},
+    {photo_id:"ph_1011", lat:37.5880, lng:127.0300, heading_deg:null, tier:"unconfirmed", confidence:41, building_id:null},
+    {photo_id:"ph_1012", lat:37.5924, lng:127.0372, heading_deg:null, tier:"unconfirmed", confidence:33, building_id:null}
+  ],
+  pano_paths:[
+    [[127.0272,37.5870],[127.0300,37.5862],[127.0340,37.5866],[127.0372,37.5880]],
+    [[127.0292,37.5872],[127.0310,37.5892],[127.0330,37.5906],[127.0348,37.5928]],
+    [[127.0360,37.5892],[127.0378,37.5904]]
+  ],
+  panoramas:{provider:"mapillary", available:true, checked_providers:["mapillary","kakao"], start:{lat:37.5890, lng:127.0318, captured_at:"2023-05"}},
+  bbox:{w:127.0238, e:127.0408, s:37.5836, n:37.5946}
+};
+
+/* ---------- Гид: данные (DEMO) ---------- */
+
+const BRAND = {
+  ku:{primary:"#8B0029", secondary:"#F7F5F2", label:"KU", source:"wikidata", source_url:"https://www.wikidata.org"},
+  kaist:{primary:"#1F3C6E", secondary:"#EDEFF2", label:"KAIST", source:"website", source_url:"https://www.kaist.ac.kr"},
+  nu:{primary:"#0B5C73", secondary:"#F2F4F3", label:"NU", source:"wikidata", source_url:"https://www.wikidata.org"},
+  tum:{primary:null, secondary:null, label:"TUM", source:"none", source_url:null}
+};
+
+const QA_CHIPS_RU = [
+  {key:"dorms", label:"Какие общежития?"},
+  {key:"center", label:"Далеко ли до центра?"},
+  {key:"gym", label:"Есть ли спортзал?"},
+  {key:"library", label:"Покажи библиотеку"},
+  {key:"climate", label:"Какой климат?"},
+  {key:"unknown", label:"Сколько стоит обучение?"}
+];
+const QA_CHIPS_EN = [
+  {key:"dorms", label:"Which dormitories?"},
+  {key:"center", label:"How far is the centre?"},
+  {key:"gym", label:"Is there a gym?"},
+  {key:"library", label:"Show me the library"},
+  {key:"climate", label:"What is the climate?"},
+  {key:"unknown", label:"How much is tuition?"}
+];
+const QA_CHECKED_RU = "Проверено: Wikimedia Commons, OpenStreetMap, Mapillary, официальный сайт.";
+const QA_CHECKED_EN = "Checked: Wikimedia Commons, OpenStreetMap, Mapillary, official website.";
+
+const CIT_OSM = {n:1, title:"OpenStreetMap — Korea University campus", url:"https://www.openstreetmap.org"};
+const CIT_WC = {n:2, title:"Wikimedia Commons — Korea University", url:"https://commons.wikimedia.org"};
+
+const QA = {
+  dorms:{
+    match:["общежит","dorm"],
+    ru:"В границах кампуса найдены два общежития: Anam Hall и Frontier Hall [1]. Проверенных фотографий общежитий пока нет — источники дали только контуры зданий [2].",
+    en:"Two dormitories were found inside the campus boundary: Anam Hall and Frontier Hall [1]. There are no verified dormitory photos yet — the sources only provided building outlines [2].",
+    state:"pointing", citations:[CIT_OSM, CIT_WC],
+    actions:[{type:"map", building_id:"b4"}, {type:"tab", tab:"dorms"}]
+  },
+  center:{
+    match:["центр","centre","center"],
+    ru:"До центра Сеула 4.2 км — около 15 минут на метро от станции Anam, 4 минуты пешком до входа в кампус [1].",
+    en:"The city centre is 4.2 km away — about 15 minutes by metro from Anam station, a 4-minute walk from the campus gate [1].",
+    state:"talking", citations:[CIT_OSM], actions:[{type:"map"}]
+  },
+  gym:{
+    match:["спорт","gym","sport"],
+    ru:"Да: внутри кампуса есть Hwajeong Gymnasium и спортивное поле [1]. Нашлось 2 фотографии спортивных объектов — одна проверенная, одна вероятная [2].",
+    en:"Yes: the campus has Hwajeong Gymnasium and a sports field [1]. Two photos of sports facilities were found — one verified, one likely [2].",
+    state:"pointing", citations:[CIT_OSM, CIT_WC],
+    actions:[{type:"photos", photo_ids:["ph_1003","ph_1010"]}, {type:"map", building_id:"b6"}]
+  },
+  library:{
+    match:["библиотек","librar"],
+    ru:"Central Library — крупнейшая библиотека кампуса, 9 этажей [1]. Нашлось 3 проверенных фотографии интерьера [2].",
+    en:"Central Library is the largest library on campus, 9 floors [1]. Three verified interior photos were found [2].",
+    state:"pointing", citations:[CIT_OSM, CIT_WC],
+    actions:[{type:"photos", photo_ids:["ph_1001","ph_1005","ph_1013"]}, {type:"map", building_id:"b2"}]
+  },
+  climate:{
+    match:["климат","climate","погод","weather"],
+    ru:"Климат Dfa — влажный континентальный: тёплое влажное лето и холодная сухая зима [1].",
+    en:"The climate is Dfa — humid continental: warm humid summers and cold dry winters [1].",
+    state:"talking", citations:[CIT_OSM]
+  },
+  unknown:{
+    ru:"В найденных источниках нет информации об этом.",
+    en:"The sources we found contain no information about this.",
+    state:"dont_know", checked:true
+  }
+};
+
+const MASCOT_STATES = [
+  {key:"hello", ru:"Привет", en:"Hello", note:"Машет рукой при открытии профиля и чата.", noteEn:"Waves when the profile or chat opens."},
+  {key:"idle", ru:"Ожидание", en:"Idle", note:"Лёгкое покачивание и моргание.", noteEn:"Gentle sway and blinking."},
+  {key:"thinking", ru:"Думает", en:"Thinking", note:"Рука у подбородка, три точки над головой.", noteEn:"Hand to chin, three dots overhead."},
+  {key:"talking", ru:"Говорит", en:"Talking", note:"Движение рта и жест во время стриминга ответа.", noteEn:"Mouth movement and gesture while the answer streams."},
+  {key:"pointing", ru:"Показывает", en:"Pointing", note:"Указывает в сторону фото или карты.", noteEn:"Points towards photos or the map."},
+  {key:"dont_know", ru:"Не знаю", en:"Don't know", note:"Разводит руками, когда данных нет.", noteEn:"Shrugs when the data is missing."},
+  {key:"changing", ru:"Переодевается", en:"Changing", note:"Короткий эффект смены одежды.", noteEn:"A short outfit-change effect."}
+];
+
+const GRU = {
+  navGuide:"Гид", navWardrobe:"Гардероб",
+  greet:"Привет! Спроси меня про {uni}", hide:"Скрыть гида", show:"Показать гида",
+  chatTitle:"Кампи · гид по кампусу", chatNote:"Гид отвечает только по источникам, найденным для этого университета.",
+  chatPh:"Спросите про кампус…", send:"Спросить", sources:"Источники",
+  actMap:"Показать на карте", actTab:"Открыть вкладку",
+  emptyChat:"Спросите про общежития, библиотеку, дорогу до центра — отвечу по найденным источникам.",
+  retry:"Повторить", chatErr:"Не удалось получить ответ. Проверьте соединение.",
+  statesTitle:"Кампи: персонаж и состояния",
+  statesIntro:"Гид сервиса. Собран из слоёв (тело, лицо, волосы, одежда, аксессуары) — части анимируются отдельно, слои переносятся в Rive, Lottie или SVG+CSS без переделки.",
+  namesNote:"Варианты имени: Кампи · Квадди · Ора. Выбрано — Кампи.",
+  wardrobeTitle:"Гардероб", wardrobeNote:"Неофициальный мерч.",
+  colorsFrom:"Цвета", officialSite:"официальный сайт", colorsNotFound:"Фирменные цвета не найдены — нейтральная палитра сервиса",
+  catTop:"Верх", catHead:"Голова", catAcc:"Аксессуар",
+  hoodie:"Худи", tshirt:"Футболка", varsity:"Варсити-куртка", cap:"Кепка", scarf:"Шарф", backpack:"Рюкзак", none:"Без",
+  random:"Случайный образ", savePng:"Сохранить картинку", preview:"Превью", askMe:"Спросить Кампи",
+  demoNote:"Тестовые цвета и надписи. Официальные логотипы и гербы не используются."
+};
+const GEN = {
+  navGuide:"Guide", navWardrobe:"Wardrobe",
+  greet:"Hi! Ask me about {uni}", hide:"Hide guide", show:"Show guide",
+  chatTitle:"Kampi · campus guide", chatNote:"The guide answers only from sources found for this university.",
+  chatPh:"Ask about the campus…", send:"Ask", sources:"Sources",
+  actMap:"Show on map", actTab:"Open tab",
+  emptyChat:"Ask about dormitories, the library or the way downtown — I answer from the sources we found.",
+  retry:"Retry", chatErr:"Could not get an answer. Check your connection.",
+  statesTitle:"Kampi: character and states",
+  statesIntro:"The service guide. Built from layers (body, face, hair, clothing, accessories) — parts animate separately and the layers port to Rive, Lottie or SVG+CSS as they are.",
+  namesNote:"Name options: Kampi · Quaddy · Ora. Chosen — Kampi.",
+  wardrobeTitle:"Wardrobe", wardrobeNote:"Unofficial merch.",
+  colorsFrom:"Colors", officialSite:"official website", colorsNotFound:"No brand colors found — service neutral palette",
+  catTop:"Top", catHead:"Head", catAcc:"Accessory",
+  hoodie:"Hoodie", tshirt:"T-shirt", varsity:"Varsity jacket", cap:"Cap", scarf:"Scarf", backpack:"Backpack", none:"None",
+  random:"Random look", savePng:"Save image", preview:"Preview", askMe:"Ask Kampi",
+  demoNote:"Demo colors and lettering. No official logos or crests are used."
+};
+</script>
+</body>
+</html>
