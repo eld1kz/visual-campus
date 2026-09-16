@@ -1,5 +1,6 @@
 """Wikidata client: wbsearchentities -> wbgetentities, with a Wikipedia spelling fallback."""
 
+import asyncio
 import re
 from dataclasses import dataclass, field
 
@@ -144,8 +145,8 @@ async def search_wikidata(client: httpx.AsyncClient, query: str) -> WikidataResu
 
 # ---------- Profile: one university by QID ----------
 
-P_INSTANCE_OF = "P31"
-MAX_ADMIN_LEVELS = 4
+P_INSTANCE_OF, P_HEADQUARTERS, P_LOCATION = "P31", "P159", "P276"
+MAX_ADMIN_LEVELS = 3
 
 # "City"-like classes used to find the city centre by walking up P131 (located in).
 CITY_CLASSES = {
@@ -171,6 +172,7 @@ class Place:
 class UniversityRecord:
     wikidata_id: str
     name: str
+    name_en: str
     names: list[str]
     lat: float | None
     lng: float | None
@@ -193,26 +195,32 @@ def _item_ids(entity: dict, prop: str) -> list[str]:
 
 
 async def _find_city_center(client: httpx.AsyncClient, entity: dict, lang: str) -> Place | None:
-    """Walk up P131 (located in) until an entity that is a city/town with coordinates."""
-    current = entity
+    """Headquarters/location first (usually the city itself), then walk up P131 (located in).
+
+    Stops before the country: country entities are huge and never a city centre."""
+    countries = set(_item_ids(entity, P_COUNTRY))
+    next_ids = (_item_ids(entity, P_HEADQUARTERS) + _item_ids(entity, P_LOCATION) + _item_ids(entity, P_LOCATED_IN))[:1]
     for _ in range(MAX_ADMIN_LEVELS):
-        parent_ids = _item_ids(current, P_LOCATED_IN)
-        if not parent_ids:
+        if not next_ids or next_ids[0] in countries:
             return None
-        parents = await _entities(client, parent_ids[:1], "labels|claims")
-        parent = parents.get(parent_ids[0])
+        parent = (await _entities(client, next_ids, "labels|claims")).get(next_ids[0])
         if not parent:
             return None
         coords = _claim_value(parent, P_COORDS)
         if set(_item_ids(parent, P_INSTANCE_OF)) & CITY_CLASSES and coords:
-            return Place(name=_label(parent, lang) or parent_ids[0], lat=coords["latitude"], lng=coords["longitude"])
-        current = parent
+            return Place(name=_label(parent, lang) or next_ids[0], lat=coords["latitude"], lng=coords["longitude"])
+        next_ids = _item_ids(parent, P_LOCATED_IN)[:1]
     return None
 
 
 async def get_university(client: httpx.AsyncClient, qid: str, lang: str = "en") -> UniversityRecord | None:
-    entities = await _entities(client, [qid], "labels|aliases|claims|sitelinks", languages=None)
-    entity = entities.get(qid)
+    data = await _get(
+        client,
+        WIKIDATA_API,
+        # sitefilter: big universities have 200+ sitelinks; only these three are used.
+        {"action": "wbgetentities", "ids": qid, "props": "labels|aliases|claims|sitelinks", "sitefilter": "enwiki|ruwiki|kowiki"},
+    )
+    entity = data.get("entities", {}).get(qid)
     if not entity or "missing" in entity:
         return None
 
@@ -221,13 +229,17 @@ async def get_university(client: httpx.AsyncClient, qid: str, lang: str = "en") 
     names += [a["value"] for aliases in entity.get("aliases", {}).values() for a in aliases]
 
     city_ids, country_ids = _item_ids(entity, P_LOCATED_IN), _item_ids(entity, P_COUNTRY)
-    places = await _entities(client, city_ids[:1] + country_ids[:1], "labels")
+    places, city_center = await asyncio.gather(
+        _entities(client, city_ids[:1] + country_ids[:1], "labels"),
+        _find_city_center(client, entity, lang),
+    )
     coords = _claim_value(entity, P_COORDS) or {}
     sitelinks = entity.get("sitelinks", {})
 
     return UniversityRecord(
         wikidata_id=qid,
         name=name,
+        name_en=_label(entity, "en") or name,
         names=list(dict.fromkeys(n for n in names if n)),
         lat=coords.get("latitude"),
         lng=coords.get("longitude"),
@@ -241,5 +253,5 @@ async def get_university(client: httpx.AsyncClient, qid: str, lang: str = "en") 
             for code, link in sitelinks.items()
             if code in ("enwiki", "ruwiki", "kowiki")
         },
-        city_center=await _find_city_center(client, entity, lang),
+        city_center=city_center,
     )
