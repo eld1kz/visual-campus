@@ -2,10 +2,12 @@ import logging
 import time
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.routers import health
+from app.routers import health, resolve
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("visual_campus")
@@ -30,4 +32,11 @@ async def log_request_time(request: Request, call_next):
     return response
 
 
+@app.exception_handler(RequestValidationError)
+async def readable_validation_error(request: Request, exc: RequestValidationError):
+    problems = [f"{'.'.join(str(p) for p in err['loc'][1:])}: {err['msg']}" for err in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": "Invalid request. " + "; ".join(problems)})
+
+
 app.include_router(health.router)
+app.include_router(resolve.router)
