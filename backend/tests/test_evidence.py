@@ -78,6 +78,16 @@ def test_library_keyword_sets_category():
     assert evaluate(f, CTX).category == "libraries"
 
 
+def test_non_latin_name_glued_to_numbers_counts_as_mention():
+    ev = evaluate(make_file(title="File:2006고려대학교19.jpg"), CTX)
+    assert weights(ev)["text"] > 0
+
+
+def test_short_latin_alias_needs_word_boundary():
+    ev = evaluate(make_file(title="File:KUMC hospital.jpg"), CTX)
+    assert "text" not in weights(ev)
+
+
 def test_logos_are_not_photos():
     assert evaluate(make_file(title="File:Korea University logo.png"), CTX) is None
 

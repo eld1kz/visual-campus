@@ -144,8 +144,12 @@ def _mentioned_name(text: str, names: list[str]) -> str | None:
     haystack = f" {normalize(text)} "
     for name in sorted(names, key=len, reverse=True):
         n = normalize(name)
-        min_len = 4 if n.isascii() else 3
-        if len(n) >= min_len and f" {n}" in haystack:
+        if n.isascii():
+            # Latin names must start at a word boundary ("KU" must not match "kumc").
+            if len(n) >= 4 and f" {n}" in haystack:
+                return name
+        # Korean/Japanese/Chinese titles often glue words and numbers together: "2006고려대학교19".
+        elif len(n) >= 3 and n in haystack:
             return name
     return None
 
