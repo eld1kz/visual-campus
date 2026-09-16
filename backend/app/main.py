@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.routers import health, resolve
+from app.routers import health, profile, resolve
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("visual_campus")
@@ -40,3 +40,4 @@ async def readable_validation_error(request: Request, exc: RequestValidationErro
 
 app.include_router(health.router)
 app.include_router(resolve.router)
+app.include_router(profile.router)
