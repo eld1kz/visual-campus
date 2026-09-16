@@ -1,0 +1,105 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import { GuideGreeting } from "@/components/guide/GuideGreeting";
+import { usePreferences } from "@/components/layout/PreferencesProvider";
+import { CampusMapSection } from "@/components/map/CampusMapSection";
+import { PhotoDetail } from "@/components/photos/PhotoDetail";
+import { PhotosSection } from "@/components/photos/PhotosSection";
+import { SourcesBanner } from "@/components/search/SourcesBanner";
+import { DemoDataPlate } from "@/components/ui/DemoDataPlate";
+import { WarningBanner } from "@/components/ui/WarningBanner";
+import { MAP } from "@/lib/mock/map";
+import { PROFILE } from "@/lib/mock/profile";
+import { CATEGORIES, type PhotoTab } from "@/lib/photos";
+import type { Photo, PhotoCategory, Profile, ProfileStats } from "@/lib/types";
+import { AboutSection } from "./AboutSection";
+import { ProfileHeader } from "./ProfileHeader";
+import { SectionTabs, type ProfileSection } from "./SectionTabs";
+
+type OpenPhoto = { list: Photo[]; index: number };
+
+type Props = {
+  profile: Profile;
+  stats: ProfileStats;
+  /** true: data from GET /profile; false: the design's demo data. */
+  live: boolean;
+  params: URLSearchParams;
+};
+
+export function ProfileView({ profile, stats, live, params }: Props) {
+  const { t } = usePreferences();
+  const tabParam = params.get("tab");
+  const initialTab: PhotoTab = CATEGORIES.includes(tabParam as PhotoCategory) ? (tabParam as PhotoCategory) : "all";
+  const byConfidence = useMemo(() => [...profile.photos].sort((a, b) => b.confidence - a.confidence), [profile.photos]);
+
+  const [section, setSection] = useState<ProfileSection>(params.get("section") === "map" ? "map" : "photos");
+  const [banner, setBanner] = useState(true);
+  const [open, setOpen] = useState<OpenPhoto | null>(() => {
+    const index = byConfidence.findIndex((p) => p.id === params.get("photo"));
+    return index >= 0 ? { list: byConfidence, index } : null;
+  });
+
+  const step = useCallback(
+    (delta: number) =>
+      setOpen((cur) => cur && { ...cur, index: (cur.index + delta + cur.list.length) % cur.list.length }),
+    [],
+  );
+  const close = useCallback(() => setOpen(null), []);
+  const prev = useCallback(() => step(-1), [step]);
+  const next = useCallback(() => step(1), [step]);
+  const openById = (id: string) => {
+    const index = byConfidence.findIndex((p) => p.id === id);
+    if (index >= 0) setOpen({ list: byConfidence, index });
+  };
+
+  return (
+    <div className="mx-auto max-w-[1240px] px-[22px] pb-[90px] pt-[30px]">
+      {live ? (
+        <SourcesBanner sources={profile.sources_status} />
+      ) : (
+        <>
+          <DemoDataPlate className="mb-[18px]" />
+          {banner && (
+            <WarningBanner onDismiss={() => setBanner(false)} className="mb-[22px]">
+              {t.bannerFlickr}
+            </WarningBanner>
+          )}
+        </>
+      )}
+
+      <ProfileHeader
+        university={profile.university}
+        generatedInMs={profile.generated_in_ms}
+        stats={stats}
+        aside={<GuideGreeting universityName={profile.university.name} />}
+      />
+      <AboutSection profile={profile} onOpenMap={() => setSection("map")} />
+      <SectionTabs active={section} onChange={setSection} />
+
+      {section === "photos" && (
+        <PhotosSection
+          photos={profile.photos}
+          sources={profile.sources_status}
+          initialTab={initialTab}
+          onOpen={(list, index) => setOpen({ list, index })}
+        />
+      )}
+
+      {section === "map" && (
+        <>
+          {/* The campus map is not connected to the API yet: it always shows the demo campus. */}
+          {live && <DemoDataPlate className="mb-3.5" />}
+          <CampusMapSection
+            data={MAP}
+            photos={live ? PROFILE.photos : profile.photos}
+            initialBuildingId={params.get("building")}
+            onOpenPhoto={openById}
+          />
+        </>
+      )}
+
+      {open && <PhotoDetail photo={open.list[open.index]} onPrev={prev} onNext={next} onClose={close} />}
+    </div>
+  );
+}

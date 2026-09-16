@@ -29,9 +29,18 @@ export function ResolvedView({ query, correctedQuery, university, sources, tookM
       <UniversityCard university={university} />
 
       <div className="mt-[22px] flex flex-wrap items-center gap-2">
-        <Link href="/collecting" className="hover:no-underline">
-          <Button className="px-[22px] py-[13px] text-sm">{t.buildProfile}</Button>
-        </Link>
+        {university.wikidata_id ? (
+          <Link
+            href={`/profile?id=${university.wikidata_id}&name=${encodeURIComponent(university.name)}`}
+            className="hover:no-underline"
+          >
+            <Button className="px-[22px] py-[13px] text-sm">{t.buildProfile}</Button>
+          </Link>
+        ) : (
+          <Button disabled title={t.noWikidata} className="px-[22px] py-[13px] text-sm">
+            {t.buildProfile}
+          </Button>
+        )}
         <Button variant="secondary" onClick={onSearchAgain} className="px-[22px] py-[13px] text-sm">
           {t.searchAnother}
         </Button>
