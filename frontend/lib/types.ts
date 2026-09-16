@@ -44,7 +44,7 @@ export type PhotoCategory = "campus" | "dorms" | "classrooms" | "libraries" | "c
 export type PhotoTag = "dorm" | "sport" | "labs" | "student_life";
 
 export type Evidence = {
-  type: "geo" | "category" | "text" | "vision" | "missing";
+  type: "geo" | "category" | "text" | "vision" | "missing" | "date" | "content";
   label: string;
   /** Demo only: English copy of `label` (the API will answer in the requested language). */
   label_en?: string;
@@ -69,8 +69,10 @@ export type Photo = {
   source_domain: string;
   author: string;
   license: string;
-  published_at: string;
+  published_at: string | null;
   retrieved_at: string;
+  lat?: number | null;
+  lng?: number | null;
   evidence: Evidence[];
   duplicates: Duplicate[];
   /** Demo only: placeholder tile height and caption until real images exist. */
@@ -80,7 +82,7 @@ export type Photo = {
 
 export type ProfileSourceStatus = {
   name: string;
-  status: "ok" | "unavailable" | "timeout";
+  status: "ok" | "unavailable" | "timeout" | "error";
   count: number;
 };
 
@@ -90,18 +92,20 @@ export type ProfileUniversity = {
   id: string;
   name: string;
   aliases: string[];
-  city: string;
-  country: string;
-  website: string;
-  lat: number;
-  lng: number;
+  city: string | null;
+  country: string | null;
+  website: string | null;
+  lat: number | null;
+  lng: number | null;
   campus_polygon: [number, number][] | null;
-  distance_to_center_km: number;
+  distance_to_center_km: number | null;
   /** Demo only: display helpers. */
   flag?: string;
   city_ru?: string;
   country_ru?: string;
 };
+
+export type ProfileStats = { photos: number; verified: number; likely: number; hidden: number; duplicates?: number };
 
 export type Profile = {
   university: ProfileUniversity;

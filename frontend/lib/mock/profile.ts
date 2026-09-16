@@ -3,7 +3,7 @@ import type { Profile, ProfileUniversity } from "@/lib/types";
 import { MAP } from "./map";
 import { PHOTOS } from "./photos";
 
-export type DemoUniversity = ProfileUniversity & { climate: string; climate_en: string };
+export type DemoUniversity = ProfileUniversity & { distance_to_center_km: number; climate: string; climate_en: string };
 
 export const DEMO_UNIVERSITIES: DemoUniversity[] = [
   {

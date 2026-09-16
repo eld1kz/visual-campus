@@ -42,7 +42,7 @@ export function AboutSection({ profile, onOpenMap }: Props) {
         <div className="flex justify-between gap-3 pt-[9px] text-[12.5px] text-ink-3">
           <span>{t.distance}</span>
           <span className="font-mono text-ink-2">
-            {university.distance_to_center_km.toFixed(1)} {t.km}
+            {university.distance_to_center_km === null ? "—" : `${university.distance_to_center_km.toFixed(1)} ${t.km}`}
           </span>
         </div>
       </div>

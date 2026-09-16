@@ -7,6 +7,8 @@ export const EVIDENCE_ICON: Record<Evidence["type"], string> = {
   text: "🏷",
   vision: "👁",
   missing: "⚠",
+  date: "🕰",
+  content: "👥",
 };
 
 export const evidenceLabel = (e: Evidence, lang: "ru" | "en") => (lang === "en" && e.label_en ? e.label_en : e.label);

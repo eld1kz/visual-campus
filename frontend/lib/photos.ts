@@ -22,7 +22,7 @@ export function filterPhotos(photos: Photo[], f: PhotoFilter): Photo[] {
   );
   return f.sort === "confidence"
     ? list.sort((a, b) => b.confidence - a.confidence)
-    : list.sort((a, b) => b.published_at.localeCompare(a.published_at));
+    : list.sort((a, b) => (b.published_at ?? "").localeCompare(a.published_at ?? ""));
 }
 
 export function countInTab(photos: Photo[], tab: PhotoTab, showUnconfirmed: boolean): number {

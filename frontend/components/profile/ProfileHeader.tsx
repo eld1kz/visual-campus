@@ -13,7 +13,9 @@ type Props = {
 
 export function ProfileHeader({ university: u, generatedInMs, stats, aside }: Props) {
   const { t, lang } = usePreferences();
-  const place = lang === "en" ? `${u.city}, ${u.country}` : `${u.city_ru ?? u.city}, ${u.country_ru ?? u.country}`;
+  const place = (lang === "en" ? [u.city, u.country] : [u.city_ru ?? u.city, u.country_ru ?? u.country])
+    .filter(Boolean)
+    .join(", ");
   const statItems = [
     { value: stats.photos, label: t.statPhotos, color: "var(--ink)" },
     { value: stats.verified, label: t.statVerified, color: "var(--ok)" },
@@ -29,9 +31,11 @@ export function ProfileHeader({ university: u, generatedInMs, stats, aside }: Pr
           <span>
             {u.flag} {place}
           </span>
-          <a href={u.website} target="_blank" rel="noreferrer">
-            {u.website.replace(/^https?:\/\//, "")}
-          </a>
+          {u.website && (
+            <a href={u.website} target="_blank" rel="noreferrer">
+              {u.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+            </a>
+          )}
           <span className="font-mono text-xs text-ink-3">
             {t.genIn} {(generatedInMs / 1000).toFixed(1)} {t.sec}
           </span>
