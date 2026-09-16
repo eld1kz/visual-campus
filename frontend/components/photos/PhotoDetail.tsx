@@ -6,7 +6,8 @@ import { RoundButton } from "@/components/ui/Button";
 import { TierBadge } from "@/components/ui/TierBadge";
 import { EVIDENCE_ICON, evidenceLabel, tierMeta } from "@/lib/tiers";
 import type { Photo } from "@/lib/types";
-import { licenseView } from "./PhotoCard";
+import { licenseView, photoAlt } from "./PhotoCard";
+import { PhotoImage } from "./PhotoImage";
 
 type Props = {
   photo: Photo;
@@ -62,8 +63,12 @@ export function PhotoDetail({ photo, onPrev, onNext, onClose }: Props) {
 
         <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] overflow-auto">
           <div className="flex flex-col gap-3 p-[18px]">
-            <div className="ph-stripes relative flex aspect-[4/3] items-center justify-center rounded-[18px] [--s:10px]">
-              <span className="font-mono text-xs text-ink-3">{photo.placeholder_caption}</span>
+            <div className="ph-stripes relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[18px] [--s:10px]">
+              {photo.thumb_url ? (
+                <PhotoImage key={photo.id} src={photo.thumb_url} alt={photoAlt(photo)} fit="fill" />
+              ) : (
+                <span className="font-mono text-xs text-ink-3">{photo.placeholder_caption}</span>
+              )}
             </div>
             <div className="flex flex-col gap-[7px]">
               <MetaRow label={t.source}>
@@ -133,7 +138,9 @@ export function PhotoDetail({ photo, onPrev, onNext, onClose }: Props) {
                 <div className="mt-2.5 flex flex-col gap-2">
                   {photo.duplicates.map((d) => (
                     <div key={d.id} className="flex items-center gap-2.5">
-                      <div className="ph-stripes h-[38px] w-[52px] shrink-0 rounded-md border border-line [--s:6px]" />
+                      <div className="ph-stripes relative h-[38px] w-[52px] shrink-0 overflow-hidden rounded-md border border-line [--s:6px]">
+                        <PhotoImage src={d.thumb_url} alt={d.id} fit="fill" />
+                      </div>
                       <div className="min-w-0">
                         <div className="font-mono text-[11px] text-ink-3">{d.id}</div>
                         <a href={d.source_url} target="_blank" rel="noreferrer" className="text-xs">
