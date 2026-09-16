@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
+/* Design tokens — design/README.md "Design tokens" */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --ink: #17181a;
+  --ink-2: #5c6066;
+  --ink-3: #8b9098;
+  --line: #e6e5e2;
+  --line-2: #d8d7d3;
+  --accent: oklch(0.55 0.14 265);
+  --accent-soft: oklch(0.95 0.02 265);
+  --ok: oklch(0.52 0.11 152);
+  --ok-soft: oklch(0.95 0.03 152);
+  --warn: oklch(0.58 0.11 75);
+  --warn-soft: oklch(0.95 0.04 75);
+  --mute: #8b9098;
+  --mute-soft: #f0efec;
+  --ph1: #eceae5;
+  --ph2: #e4e2dc;
+  --shadow: 0 1px 2px rgba(20, 20, 20, 0.05), 0 8px 24px rgba(20, 20, 20, 0.06);
+}
+
+[data-theme="dark"] {
+  --bg: #101113;
+  --surface: #17181b;
+  --surface-2: #1e2024;
+  --ink: #f1f1ef;
+  --ink-2: #a0a4ab;
+  --ink-3: #71757c;
+  --line: #26282c;
+  --line-2: #32353a;
+  --accent: oklch(0.7 0.13 265);
+  --accent-soft: oklch(0.28 0.05 265);
+  --ok: oklch(0.72 0.12 152);
+  --ok-soft: oklch(0.26 0.05 152);
+  --warn: oklch(0.78 0.12 75);
+  --warn-soft: oklch(0.28 0.05 75);
+  --mute: #8b9098;
+  --mute-soft: #222428;
+  --ph1: #23262b;
+  --ph2: #1d2024;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-mute: var(--mute);
+  --color-mute-soft: var(--mute-soft);
+  --shadow-soft: var(--shadow);
+  --font-sans: var(--font-instrument-sans), Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+
+  --animate-vc-in: vc-in 0.3s ease both;
+  --animate-vc-pulse: vc-pulse 1.1s ease-in-out infinite;
+  --animate-vc-bounce: vc-bounce 1.6s ease-in-out 3;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+@keyframes vc-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes vc-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+}
+@keyframes vc-bounce {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-9px); }
+}
+
+/* Mascot keyframes — design/Mascot.dc.html */
+@keyframes km-sway { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(0.7deg); } }
+@keyframes km-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.08); } }
+@keyframes km-wave { 0%, 100% { transform: rotate(-118deg); } 50% { transform: rotate(-156deg); } }
+@keyframes km-talk { 0%, 100% { transform: scaleY(0.55); } 50% { transform: scaleY(1.35); } }
+@keyframes km-gesture { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-8deg); } }
+@keyframes km-point { 0%, 100% { transform: rotate(74deg); } 50% { transform: rotate(82deg); } }
+@keyframes km-shrug { 0%, 100% { transform: rotate(-40deg) translateY(0); } 50% { transform: rotate(-52deg) translateY(-4px); } }
+@keyframes km-dots { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+@keyframes km-change { 0% { transform: scale(1); } 30% { transform: scale(1.06) rotate(-3deg); } 60% { transform: scale(0.96) rotate(2deg); } 100% { transform: scale(1); } }
+@keyframes km-spark { 0% { opacity: 0; transform: scale(0.4); } 45% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5); } }
+
+/* Placeholders: photos (diagonal stripes, --s = stripe width) and maps (grid, --g = cell size) */
+@utility ph-stripes {
+  background: repeating-linear-gradient(135deg, var(--ph1) 0 var(--s, 9px), var(--ph2) var(--s, 9px) calc(var(--s, 9px) * 2));
+}
+@utility ph-grid {
+  background:
+    repeating-linear-gradient(0deg, var(--ph1) 0 calc(var(--g, 12px) - 1px), var(--ph2) calc(var(--g, 12px) - 1px) var(--g, 12px)),
+    repeating-linear-gradient(90deg, var(--ph1) 0 calc(var(--g, 12px) - 1px), var(--ph2) calc(var(--g, 12px) - 1px) var(--g, 12px));
+}
+@utility map-lines {
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 calc(var(--g, 44px) - 1px), var(--line) calc(var(--g, 44px) - 1px) var(--g, 44px)),
+    repeating-linear-gradient(90deg, transparent 0 calc(var(--g, 44px) - 1px), var(--line) calc(var(--g, 44px) - 1px) var(--g, 44px));
+}
+@utility micro-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
 }
