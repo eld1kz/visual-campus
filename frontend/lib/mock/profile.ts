@@ -44,6 +44,10 @@ export const PROFILE: Profile = {
   photos: PHOTOS,
 };
 
+const SOURCE_NAMES_EN: Record<string, string> = { "Официальный сайт": "Official website", "Веб-поиск": "Web search" };
+
+export const sourceLabel = (name: string, lang: "ru" | "en") => (lang === "en" ? (SOURCE_NAMES_EN[name] ?? name) : name);
+
 /** Summary line in the profile header («42 фото · 27 проверено · 11 вероятно · 4 скрыто»). */
 export const PROFILE_STATS = { photos: 42, verified: 27, likely: 11, hidden: 4 };
 

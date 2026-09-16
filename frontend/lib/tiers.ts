@@ -1,5 +1,15 @@
 import type { Dict } from "@/lib/i18n";
-import type { Tier } from "@/lib/types";
+import type { Evidence, Tier } from "@/lib/types";
+
+export const EVIDENCE_ICON: Record<Evidence["type"], string> = {
+  geo: "📍",
+  category: "📁",
+  text: "🏷",
+  vision: "👁",
+  missing: "⚠",
+};
+
+export const evidenceLabel = (e: Evidence, lang: "ru" | "en") => (lang === "en" && e.label_en ? e.label_en : e.label);
 
 // Tier vocabulary: color is always paired with an icon and a text label.
 export function tierMeta(tier: Tier, t: Dict) {
