@@ -132,6 +132,8 @@ export type ProfileDone = {
   stats: ProfileStats;
   generated_in_ms: number;
   cached: boolean;
+  /** A source timed out or failed, or the 30 s deadline hit. */
+  partial: boolean;
 };
 
 export type ProfileEvent =

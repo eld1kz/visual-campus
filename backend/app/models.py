@@ -152,6 +152,7 @@ class ProfileDone(BaseModel):
     stats: ProfileStats
     generated_in_ms: int
     cached: bool
+    partial: bool = Field(description="A source timed out or failed, or the 30 s deadline hit")
 
 
 # ---------- GET /campus/{wikidata_id} (docs/CONTRACT.md §4) ----------

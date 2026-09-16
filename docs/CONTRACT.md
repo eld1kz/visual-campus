@@ -197,11 +197,14 @@ data: <одна строка JSON>
   "university": ProfileUniversity,
   "stats": { "photos": 42, "verified": 20, "likely": 15, "hidden": 7, "duplicates": 5 },
   "generated_in_ms": 18400,
-  "cached": false
+  "cached": false,
+  "partial": false
 }
 ```
 
 `hidden` — число `unconfirmed`. `stats` считаются по финальному состоянию всех `photo`.
+
+`partial` — `true`, если хотя бы один источник закончился `timeout` или `error` (`skipped` не считается) либо сработал общий дедлайн 30 с. UI показывает честную плашку «профиль неполный», кэш хранит такой профиль меньше.
 
 ```jsonc
 // ProfileUniversity
@@ -225,7 +228,7 @@ data: <одна строка JSON>
 
 ### Кэш
 
-Готовый профиль хранится как `ProfileResponse` (`university`, `generated_in_ms`, `sources_status`, `summary`, `stats`, `photos`) по ключу `(wikidata_id, lang)`. Запрос из кэша проигрывает те же события в том же порядке и заканчивается `done` с `cached: true`. Частичный профиль (упал источник) кэшируется на меньший срок, чем полный.
+Готовый профиль хранится как `ProfileResponse` (`university`, `generated_in_ms`, `sources_status`, `summary`, `stats`, `photos`) по ключу `(wikidata_id, lang)`. Запрос из кэша проигрывает те же события в том же порядке и заканчивается `done` с `cached: true` (`partial` — как при сборке). Частичный профиль (упал источник) кэшируется на меньший срок, чем полный.
 
 ---
 
