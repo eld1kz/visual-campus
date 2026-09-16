@@ -1,7 +1,6 @@
 """Resolve a free-text university name via ROR + Wikidata in parallel."""
 
 import asyncio
-import logging
 import math
 import time
 from dataclasses import dataclass, field
@@ -12,10 +11,9 @@ from app.config import settings
 from app.models import ResolveResponse, SourceStatus, UniversityCandidate
 from app.services.hits import SourceHit
 from app.services.ror import search_ror
+from app.services.sources import run_source
 from app.services.text import best_similarity, normalize
 from app.services.wikidata import WikidataResult, search_wikidata
-
-logger = logging.getLogger("visual_campus.resolver")
 
 MAX_CANDIDATES = 5
 MIN_NAME_SIMILARITY = 0.6
@@ -148,16 +146,7 @@ def decide(groups: list[Merged], query: str) -> tuple[str, list[Merged]]:
 
 
 async def _run_source(name: str, coro) -> tuple[SourceStatus, object]:
-    started = time.perf_counter()
-    try:
-        result = await asyncio.wait_for(coro, timeout=settings.source_timeout_s)
-        state = "ok"
-    except (asyncio.TimeoutError, httpx.TimeoutException):
-        result, state = None, "timeout"
-    except Exception:
-        logger.exception("Source %s failed", name)
-        result, state = None, "error"
-    logger.info("source=%s status=%s in %.0f ms", name, state, (time.perf_counter() - started) * 1000)
+    state, result = await run_source(name, coro, settings.source_timeout_s)
     return SourceStatus(name=name, status=state), result
 
 
