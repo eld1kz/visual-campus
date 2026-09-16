@@ -68,14 +68,15 @@ async def _spelling_suggestion(client: httpx.AsyncClient, query: str, lang: str)
     return data.get("query", {}).get("searchinfo", {}).get("suggestion")
 
 
-async def _entities(client: httpx.AsyncClient, ids: list[str], props: str) -> dict[str, dict]:
+async def _entities(
+    client: httpx.AsyncClient, ids: list[str], props: str, languages: str | None = "en|ru"
+) -> dict[str, dict]:
     if not ids:
         return {}
-    data = await _get(
-        client,
-        WIKIDATA_API,
-        {"action": "wbgetentities", "ids": "|".join(ids), "props": props, "languages": "en|ru"},
-    )
+    params = {"action": "wbgetentities", "ids": "|".join(ids), "props": props}
+    if languages:
+        params["languages"] = languages
+    data = await _get(client, WIKIDATA_API, params)
     return data.get("entities", {})
 
 
@@ -139,3 +140,106 @@ async def search_wikidata(client: httpx.AsyncClient, query: str) -> WikidataResu
             )
         )
     return result
+
+
+# ---------- Profile: one university by QID ----------
+
+P_INSTANCE_OF = "P31"
+MAX_ADMIN_LEVELS = 4
+
+# "City"-like classes used to find the city centre by walking up P131 (located in).
+CITY_CLASSES = {
+    "Q515",  # city
+    "Q1549591",  # big city
+    "Q5119",  # capital
+    "Q200250",  # metropolis
+    "Q1637706",  # city with millions of inhabitants
+    "Q3181348",  # university town
+    "Q7930989",  # city/town
+    "Q3957",  # town
+}
+
+
+@dataclass
+class Place:
+    name: str
+    lat: float
+    lng: float
+
+
+@dataclass
+class UniversityRecord:
+    wikidata_id: str
+    name: str
+    names: list[str]
+    lat: float | None
+    lng: float | None
+    website: str | None
+    commons_category: str | None
+    ror_id: str | None
+    city: str | None
+    country: str | None
+    wikipedia_titles: dict[str, str]
+    city_center: Place | None
+
+
+def _item_ids(entity: dict, prop: str) -> list[str]:
+    ids = []
+    for claim in entity.get("claims", {}).get(prop, []):
+        value = claim.get("mainsnak", {}).get("datavalue", {}).get("value")
+        if isinstance(value, dict) and "id" in value:
+            ids.append(value["id"])
+    return ids
+
+
+async def _find_city_center(client: httpx.AsyncClient, entity: dict, lang: str) -> Place | None:
+    """Walk up P131 (located in) until an entity that is a city/town with coordinates."""
+    current = entity
+    for _ in range(MAX_ADMIN_LEVELS):
+        parent_ids = _item_ids(current, P_LOCATED_IN)
+        if not parent_ids:
+            return None
+        parents = await _entities(client, parent_ids[:1], "labels|claims")
+        parent = parents.get(parent_ids[0])
+        if not parent:
+            return None
+        coords = _claim_value(parent, P_COORDS)
+        if set(_item_ids(parent, P_INSTANCE_OF)) & CITY_CLASSES and coords:
+            return Place(name=_label(parent, lang) or parent_ids[0], lat=coords["latitude"], lng=coords["longitude"])
+        current = parent
+    return None
+
+
+async def get_university(client: httpx.AsyncClient, qid: str, lang: str = "en") -> UniversityRecord | None:
+    entities = await _entities(client, [qid], "labels|aliases|claims|sitelinks", languages=None)
+    entity = entities.get(qid)
+    if not entity or "missing" in entity:
+        return None
+
+    name = _label(entity, lang) or qid
+    names = [v["value"] for v in entity.get("labels", {}).values()]
+    names += [a["value"] for aliases in entity.get("aliases", {}).values() for a in aliases]
+
+    city_ids, country_ids = _item_ids(entity, P_LOCATED_IN), _item_ids(entity, P_COUNTRY)
+    places = await _entities(client, city_ids[:1] + country_ids[:1], "labels")
+    coords = _claim_value(entity, P_COORDS) or {}
+    sitelinks = entity.get("sitelinks", {})
+
+    return UniversityRecord(
+        wikidata_id=qid,
+        name=name,
+        names=list(dict.fromkeys(n for n in names if n)),
+        lat=coords.get("latitude"),
+        lng=coords.get("longitude"),
+        website=_claim_value(entity, P_WEBSITE),
+        commons_category=_claim_value(entity, P_COMMONS_CATEGORY),
+        ror_id=_claim_value(entity, P_ROR),
+        city=_label(places[city_ids[0]], lang) if city_ids and city_ids[0] in places else None,
+        country=_label(places[country_ids[0]], lang) if country_ids and country_ids[0] in places else None,
+        wikipedia_titles={
+            code.removesuffix("wiki"): link["title"]
+            for code, link in sitelinks.items()
+            if code in ("enwiki", "ruwiki", "kowiki")
+        },
+        city_center=await _find_city_center(client, entity, lang),
+    )
