@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { dictionaries, type Dict, type Lang } from "@/lib/i18n";
+import { LANG_KEY, THEME_KEY } from "@/lib/preferences";
 
 export type Theme = "light" | "dark";
 
@@ -15,8 +16,6 @@ type Preferences = {
 
 const PreferencesContext = createContext<Preferences | null>(null);
 
-export const THEME_KEY = "vc-theme";
-const LANG_KEY = "vc-lang";
 
 function readStored<T extends string>(key: string, allowed: readonly T[]): T | null {
   try {

@@ -4,7 +4,8 @@ import { ChatDrawer } from "@/components/chat/ChatDrawer";
 import { GuideFab } from "@/components/guide/GuideFab";
 import { GuideProvider } from "@/components/guide/GuideProvider";
 import { Header } from "@/components/layout/Header";
-import { PreferencesProvider, THEME_KEY } from "@/components/layout/PreferencesProvider";
+import { PreferencesProvider } from "@/components/layout/PreferencesProvider";
+import { THEME_KEY } from "@/lib/preferences";
 import "./globals.css";
 
 const instrumentSans = Instrument_Sans({
