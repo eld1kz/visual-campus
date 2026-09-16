@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { DemoDataPlate } from "@/components/ui/DemoDataPlate";
-import { LOADING_SOURCE_TIMES, LOADING_STEP_TIMES, PROFILE, sourceLabel } from "@/lib/mock/profile";
+import { LOADING_SOURCE_TIMES, LOADING_STEP_TIMES, PROFILE } from "@/lib/mock/profile";
+import { sourceLabel } from "@/lib/sources";
 import { LoadingSteps } from "./LoadingSteps";
 import { LoadingSources } from "./LoadingSources";
 

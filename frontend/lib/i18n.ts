@@ -50,6 +50,8 @@ const ru = {
   tryAgain: "Повторить поиск",
 
   loadingTitle: "Собираем визуальный профиль",
+  loadingNote: "Проверяем источники — обычно это занимает 5–15 секунд.",
+  noWikidata: "Для этого вуза нет записи в Wikidata — профиль пока не собрать.",
   stepsTitle: "ШАГИ",
   sourcesTitle: "ИСТОЧНИКИ",
   photosAppearing: "ФОТО ПОЯВЛЯЮТСЯ ПО МЕРЕ ПРОВЕРКИ",
@@ -253,6 +255,8 @@ const en: Dict = {
   tryAgain: "Search again",
 
   loadingTitle: "Building the visual profile",
+  loadingNote: "Checking the sources — this usually takes 5–15 seconds.",
+  noWikidata: "This university has no Wikidata record, so a profile cannot be built yet.",
   stepsTitle: "STEPS",
   sourcesTitle: "SOURCES",
   photosAppearing: "PHOTOS APPEAR AS THEY ARE VERIFIED",

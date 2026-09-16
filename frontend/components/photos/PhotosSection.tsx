@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
-import { sourceLabel } from "@/lib/mock/profile";
+import { sourceLabel } from "@/lib/sources";
 import { filterPhotos, type PhotoSort, type PhotoTab } from "@/lib/photos";
 import type { Photo, PhotoTag, ProfileSourceStatus } from "@/lib/types";
 import { CategoryTabs } from "./CategoryTabs";
