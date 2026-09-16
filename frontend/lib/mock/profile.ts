@@ -27,7 +27,7 @@ export const PROFILE: Profile = {
   sources_status: [
     { name: "Wikimedia Commons", status: "ok", count: 23 },
     { name: "OpenStreetMap", status: "ok", count: 4 },
-    { name: "Flickr", status: "unavailable", count: 0 },
+    { name: "Flickr", status: "error", count: 0 },
     { name: "Mapillary", status: "ok", count: 6 },
     { name: "Официальный сайт", status: "ok", count: 7 },
     { name: "Веб-поиск", status: "timeout", count: 2 },

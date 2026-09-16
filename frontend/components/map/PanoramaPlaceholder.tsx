@@ -46,7 +46,7 @@ export function PanoramaPlaceholder({ data, yaw, pointIndex, pointCount, onYawCh
       </div>
 
       <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-surface px-[13px] py-[7px] text-xs text-ink-2 shadow-soft">
-        {t.map.panorama}: {provider ? PROVIDER_LABEL[provider] : "—"} · {t.map.captured} {start.captured_at}
+        {t.map.panorama}: {provider ? PROVIDER_LABEL[provider] : "—"} · {t.map.captured} {start?.captured_at ?? "—"}
       </div>
       <button
         onClick={onExit}

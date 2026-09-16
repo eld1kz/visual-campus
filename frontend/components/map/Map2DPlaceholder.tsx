@@ -83,22 +83,26 @@ export function Map2DPlaceholder(props: MapViewProps) {
               </div>
             );
           })}
-        <div
-          className="absolute left-1/2 top-1/2 h-0 origin-[0_50%] border-t border-dashed border-ink-3 opacity-60"
-          style={{ width: `${city.length}%`, transform: `rotate(${city.angle}deg)` }}
-        />
-        <div
-          className="absolute flex items-center gap-1.5 whitespace-nowrap"
-          style={{ left: `${city.x}%`, top: `${city.y}%`, transform: "translate(-5px,-50%)" }}
-        >
-          <div className="size-[9px] rounded-full bg-ink-2" />
-          <div className="flex flex-col gap-px">
-            <span className="text-[11px] text-ink-2">{data.campus.city_center.name}</span>
-            <span className="font-mono text-[10px] text-ink-3">
-              {data.campus.distance_to_center_km.toFixed(1)} {lang === "en" ? "km" : "км"} {t.map.toCenterLong}
-            </span>
-          </div>
-        </div>
+        {city && (
+          <>
+            <div
+              className="absolute left-1/2 top-1/2 h-0 origin-[0_50%] border-t border-dashed border-ink-3 opacity-60"
+              style={{ width: `${city.length}%`, transform: `rotate(${city.angle}deg)` }}
+            />
+            <div
+              className="absolute flex items-center gap-1.5 whitespace-nowrap"
+              style={{ left: `${city.x}%`, top: `${city.y}%`, transform: "translate(-5px,-50%)" }}
+            >
+              <div className="size-[9px] rounded-full bg-ink-2" />
+              <div className="flex flex-col gap-px">
+                <span className="text-[11px] text-ink-2">{city.name}</span>
+                <span className="font-mono text-[10px] text-ink-3">
+                  {data.campus.distance_to_center_km?.toFixed(1) ?? "—"} {lang === "en" ? "km" : "км"} {t.map.toCenterLong}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
         <div
           className="absolute left-1/2 top-1/2 size-3 rounded-full bg-accent shadow-[0_0_0_5px_var(--accent-soft)]"
           style={{ transform: `translate(-50%,-50%) ${counter}` }}

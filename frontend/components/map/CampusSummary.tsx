@@ -17,9 +17,9 @@ export function CampusSummary({ data, buildingQuery, selectedBuildingId, onSelec
   const inside = data.buildings.filter((b) => b.inside_campus);
   const query = buildingQuery.toLowerCase();
   const rows = [
-    { label: t.map.area, value: `${data.campus.area_km2.toFixed(2)} ${t.km}²` },
+    { label: t.map.area, value: data.campus.area_km2 == null ? "—" : `${data.campus.area_km2.toFixed(2)} ${t.km}²` },
     { label: t.map.buildingsFound, value: String(inside.length) },
-    { label: t.map.toCenter, value: `${data.campus.distance_to_center_km.toFixed(1)} ${t.km}` },
+    { label: t.map.toCenter, value: data.campus.distance_to_center_km == null ? "—" : `${data.campus.distance_to_center_km.toFixed(1)} ${t.km}` },
   ];
 
   const groups = BUILDING_TYPES.map((type) => {

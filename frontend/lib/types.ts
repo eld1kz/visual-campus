@@ -1,5 +1,5 @@
-// Data contracts. /resolve mirrors backend/app/models.py; the rest follow
-// design/README.md "Data contracts" and will be wired to the API later.
+// Data contracts: docs/CONTRACT.md, mirrored by backend/app/models.py.
+// Only the main agent edits this file; subagents request changes in their report.
 
 /* ---------- GET /resolve (live) ---------- */
 
@@ -73,6 +73,7 @@ export type Photo = {
   retrieved_at: string;
   lat?: number | null;
   lng?: number | null;
+  heading_deg?: number | null;
   evidence: Evidence[];
   duplicates: Duplicate[];
   /** Demo only: placeholder tile height and caption until real images exist. */
@@ -80,10 +81,13 @@ export type Photo = {
   placeholder_caption?: string;
 };
 
+export type ProfileSourceState = "pending" | "ok" | "timeout" | "error" | "skipped";
+
 export type ProfileSourceStatus = {
   name: string;
-  status: "ok" | "unavailable" | "timeout" | "error";
+  status: ProfileSourceState;
   count: number;
+  took_ms?: number | null;
 };
 
 export type Citation = { n: number; title: string; url: string };
@@ -99,6 +103,12 @@ export type ProfileUniversity = {
   lng: number | null;
   campus_polygon: [number, number][] | null;
   distance_to_center_km: number | null;
+  campus_area_km2?: number | null;
+  city_center?: { name: string; lat: number; lng: number } | null;
+  wikidata_id?: string;
+  ror_id?: string | null;
+  commons_category?: string | null;
+  osm_url?: string | null;
   /** Demo only: display helpers. */
   flag?: string;
   city_ru?: string;
@@ -114,6 +124,24 @@ export type Profile = {
   summary: { text: string; text_en?: string; citations: Citation[] };
   photos: Photo[];
 };
+
+/* ---------- GET /profile/{id} SSE events (docs/CONTRACT.md §3) ---------- */
+
+export type ProfileDone = {
+  university: ProfileUniversity;
+  stats: ProfileStats;
+  generated_in_ms: number;
+  cached: boolean;
+};
+
+export type ProfileEvent =
+  | { event: "source_status"; data: ProfileSourceStatus }
+  | { event: "photo"; data: Photo }
+  | { event: "summary"; data: { text: string; citations: Citation[] } }
+  | { event: "done"; data: ProfileDone };
+
+/** GET /profile/{wikidata_id} — the profile contract plus summary counts. */
+export type ProfileResponse = Profile & { stats: ProfileStats };
 
 /* ---------- Campus map ---------- */
 
@@ -158,9 +186,9 @@ export type CampusMap = {
   campus: {
     center: { lat: number; lng: number };
     polygon: LngLat[] | null;
-    area_km2: number;
-    city_center: { name: string; lat: number; lng: number };
-    distance_to_center_km: number;
+    area_km2: number | null;
+    city_center: { name: string; lat: number; lng: number } | null;
+    distance_to_center_km: number | null;
     transit: TransitStop[];
   };
   buildings: Building[];
@@ -169,7 +197,7 @@ export type CampusMap = {
     provider: PanoramaProvider | null;
     available: boolean;
     checked_providers: PanoramaProvider[];
-    start: { lat: number; lng: number; captured_at: string };
+    start: { lat: number; lng: number; captured_at: string | null } | null;
   };
   /** Demo only: street segments with panorama coverage and the placeholder projection bbox. */
   pano_paths?: LngLat[][];
@@ -207,5 +235,5 @@ export type ChatMessage = {
   citations?: Citation[];
   actions?: ChatAction[];
   /** Set when the answer is "not in the sources": lists what was checked. */
-  checked?: string;
+  checked?: string | null;
 };

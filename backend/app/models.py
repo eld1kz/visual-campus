@@ -43,11 +43,13 @@ class ErrorResponse(BaseModel):
     sources_status: list[SourceStatus] = []
 
 
-# ---------- GET /profile/{wikidata_id} (design/README.md "Data contracts → profile") ----------
+# ---------- GET /profile/{wikidata_id} (docs/CONTRACT.md §3) ----------
 
-EvidenceType = Literal["geo", "category", "text", "missing", "date", "content"]
+EvidenceType = Literal["geo", "category", "text", "vision", "missing", "date", "content"]
 Tier = Literal["verified", "likely", "unconfirmed"]
 PhotoCategory = Literal["campus", "dorms", "classrooms", "libraries", "city"]
+PhotoTag = Literal["sport", "labs", "dorm", "student_life"]
+ProfileSourceState = Literal["pending", "ok", "timeout", "error", "skipped"]
 
 
 class Evidence(BaseModel):
@@ -67,7 +69,7 @@ class Photo(BaseModel):
     thumb_url: str | None
     full_url: str
     category: PhotoCategory
-    tags: list[str]
+    tags: list[PhotoTag]
     confidence: int = Field(ge=0, le=100)
     tier: Tier
     source_url: str
@@ -78,14 +80,16 @@ class Photo(BaseModel):
     retrieved_at: str
     lat: float | None
     lng: float | None
+    heading_deg: float | None = Field(default=None, description="Camera direction, 0 = north, clockwise")
     evidence: list[Evidence]
     duplicates: list[DuplicatePhoto]
 
 
 class ProfileSourceStatus(BaseModel):
     name: str
-    status: SourceState
+    status: ProfileSourceState
     count: int
+    took_ms: int | None = None
 
 
 class Citation(BaseModel):
@@ -139,3 +143,165 @@ class ProfileResponse(BaseModel):
     summary: Summary
     stats: ProfileStats
     photos: list[Photo]
+
+
+class ProfileDone(BaseModel):
+    """Payload of the final SSE event `done`."""
+
+    university: ProfileUniversity
+    stats: ProfileStats
+    generated_in_ms: int
+    cached: bool
+
+
+# ---------- GET /campus/{wikidata_id} (docs/CONTRACT.md §4) ----------
+
+BuildingType = Literal["academic", "dorm", "library", "sport", "lab", "food", "other"]
+PanoramaProvider = Literal["mapillary", "kakao", "google"]
+
+
+class LatLng(BaseModel):
+    lat: float
+    lng: float
+
+
+class TransitStop(BaseModel):
+    type: Literal["metro", "bus"]
+    name: str
+    lat: float
+    lng: float
+    walk_min: int
+
+
+class CampusInfo(BaseModel):
+    center: LatLng
+    polygon: list[list[float]] | None = Field(description="[[lng, lat], ...]")
+    area_km2: float | None
+    city_center: Place | None
+    distance_to_center_km: float | None
+    transit: list[TransitStop]
+
+
+class Building(BaseModel):
+    id: str
+    name: str
+    type: BuildingType
+    polygon: list[list[float]] = Field(description="[[lng, lat], ...]")
+    height_m: float | None
+    levels: int | None
+    photo_ids: list[str]
+    source: str
+    inside_campus: bool
+
+
+class PhotoPin(BaseModel):
+    photo_id: str
+    lat: float
+    lng: float
+    heading_deg: float | None
+    tier: Tier
+    confidence: int = Field(ge=0, le=100)
+    thumb_url: str | None
+    building_id: str | None
+
+
+class PanoramaStart(BaseModel):
+    lat: float
+    lng: float
+    captured_at: str | None
+
+
+class Panoramas(BaseModel):
+    provider: PanoramaProvider | None
+    available: bool
+    checked_providers: list[PanoramaProvider]
+    start: PanoramaStart | None
+
+
+class CampusMapResponse(BaseModel):
+    campus: CampusInfo
+    buildings: list[Building]
+    photo_pins: list[PhotoPin]
+    panoramas: Panoramas
+
+
+# ---------- POST /chat (docs/CONTRACT.md §5) ----------
+
+MascotState = Literal["talking", "pointing", "dont_know"]
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+
+
+class ChatRequest(BaseModel):
+    wikidata_id: str = Field(pattern=r"^Q\d+$")
+    lang: Literal["ru", "en"] = "ru"
+    messages: list[ChatTurn] = Field(min_length=1)
+
+
+class ChatAction(BaseModel):
+    type: Literal["photos", "map", "tab"]
+    photo_ids: list[str] | None = None
+    building_id: str | None = None
+    tab: PhotoCategory | None = None
+
+
+class ChatMessage(BaseModel):
+    role: Literal["assistant"] = "assistant"
+    text: str
+    mascot_state: MascotState
+    citations: list[Citation]
+    actions: list[ChatAction] = []
+    checked: str | None = Field(default=None, description="Set with dont_know: where the answer was looked for")
+
+
+# ---------- Internal: source collectors → verification pipeline (docs/CONTRACT.md §6) ----------
+
+SourceName = Literal[
+    "wikidata", "openstreetmap", "wikimedia_commons", "wikipedia", "flickr", "mapillary", "official_site"
+]
+
+
+class RawImage(BaseModel):
+    """An unverified image candidate exactly as a source returned it. Collectors never score or categorize."""
+
+    id: str = Field(description="'commons-<pageid>', 'flickr-<id>', 'mapillary-<id>', 'site-<sha1(url)[:12]>'")
+    source: SourceName
+    source_url: str
+    source_domain: str
+    full_url: str
+    thumb_url: str | None = None
+    title: str = ""
+    description: str = ""
+    source_categories: list[str] = []
+    matched_category: str | None = None
+    matched_subcategory: bool = False
+    found_by: Literal["category", "geosearch", "bbox", "site", "text"]
+    author: str | None = None
+    license: str | None = None
+    license_url: str | None = None
+    published_at: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    heading_deg: float | None = None
+    width: int | None = None
+    height: int | None = None
+    sha1: str | None = None
+    is_official_site: bool = False
+
+
+class SourceResult(BaseModel):
+    name: SourceName
+    status: Literal["ok", "timeout", "error", "skipped"]
+    took_ms: int
+    images: list[RawImage] = []
+    detail: str | None = Field(default=None, description="Reason for error/skipped, for logs only")
+
+
+class CampusShape(BaseModel):
+    polygon: list[list[float]] | None = Field(description="[[lng, lat], ...]")
+    area_km2: float | None
+    osm_url: str | None
+    buildings: list[Building]

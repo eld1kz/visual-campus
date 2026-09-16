@@ -78,7 +78,8 @@ export function panoSegments(paths: LngLat[][], P: Projection) {
 /** Direction marker towards the city centre, drawn from the campus centre (50%, 50%). */
 export function cityCentreMarker(map: CampusMap) {
   const { center, city_center } = map.campus;
+  if (!city_center) return null;
   const ang = Math.atan2(city_center.lat - center.lat, city_center.lng - center.lng);
   const x = 50 + Math.cos(ang) * 44, y = 50 - Math.sin(ang) * 44;
-  return { x, y, length: Math.hypot(x - 50, y - 50), angle: (Math.atan2(y - 50, x - 50) * 180) / Math.PI };
+  return { name: city_center.name, x, y, length: Math.hypot(x - 50, y - 50), angle: (Math.atan2(y - 50, x - 50) * 180) / Math.PI };
 }

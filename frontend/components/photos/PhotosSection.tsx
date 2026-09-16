@@ -25,7 +25,7 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
 
   const visible = filterPhotos(photos, { tab, tags, sort, showUnconfirmed });
-  const searchedIn = sources.filter((s) => s.status !== "unavailable").map((s) => sourceLabel(s.name, lang));
+  const searchedIn = sources.filter((s) => s.status !== "error" && s.status !== "skipped").map((s) => sourceLabel(s.name, lang));
 
   return (
     <>
