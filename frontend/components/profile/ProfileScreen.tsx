@@ -3,10 +3,12 @@
 import { useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
+import { CampusMapSection } from "@/components/map/CampusMapSection";
 import { PhotoDetail } from "@/components/photos/PhotoDetail";
 import { PhotosSection } from "@/components/photos/PhotosSection";
 import { DemoDataPlate } from "@/components/ui/DemoDataPlate";
 import { WarningBanner } from "@/components/ui/WarningBanner";
+import { MAP } from "@/lib/mock/map";
 import { PROFILE, PROFILE_STATS } from "@/lib/mock/profile";
 import { CATEGORIES, type PhotoTab } from "@/lib/photos";
 import type { Photo, PhotoCategory } from "@/lib/types";
@@ -44,6 +46,10 @@ function ProfileView({ params }: { params: URLSearchParams }) {
   const close = useCallback(() => setOpen(null), []);
   const prev = useCallback(() => step(-1), [step]);
   const next = useCallback(() => step(1), [step]);
+  const openById = (id: string) => {
+    const index = byConfidence.findIndex((p) => p.id === id);
+    if (index >= 0) setOpen({ list: byConfidence, index });
+  };
 
   return (
     <div className="mx-auto max-w-[1240px] px-[22px] pb-[90px] pt-[30px]">
@@ -67,7 +73,16 @@ function ProfileView({ params }: { params: URLSearchParams }) {
         />
       )}
 
-      {open && <PhotoDetail photo={open.list[open.index]} onPrev={prev} onNext={next} onClose={close} />}
+      {section === "map" && (
+        <CampusMapSection
+          data={MAP}
+          photos={PROFILE.photos}
+          initialBuildingId={params.get("building")}
+          onOpenPhoto={openById}
+        />
+      )}
+
+      {open &&<PhotoDetail photo={open.list[open.index]} onPrev={prev} onNext={next} onClose={close} />}
     </div>
   );
 }
