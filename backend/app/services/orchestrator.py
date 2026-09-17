@@ -278,7 +278,7 @@ class ProfileBuild:
             _, hash_pending = await asyncio.wait(self._hash_tasks, timeout=max(self._left(), 0))
             for task in hash_pending:
                 task.cancel()
-        if len(self.hasher._hashes) != self._hashes_grouped:  # noqa: SLF001
+        if len(self.hasher.hashes()) != self._hashes_grouped:
             self._refresh()
         for name in SOURCE_NAMES:  # counts may change after late duplicates were found
             result = self.results.get(name)
@@ -342,7 +342,7 @@ class ProfileBuild:
         while self._to_hash:
             raws, self._to_hash = self._to_hash, []
             await self.hasher.prepare(raws, client)
-            if len(self.hasher._hashes) == self._hashes_grouped:  # noqa: SLF001 — nothing new to group by
+            if len(self.hasher.hashes()) == self._hashes_grouped:  # nothing new to group by
                 continue
             self._refresh()
             for name in PHOTO_COLLECTORS:
@@ -424,8 +424,8 @@ class ProfileBuild:
         withdrawn — the new main photo is sent with the earlier id in its `duplicates`; no new event type.
         """
         dedup = Deduplicator()
-        self._hashes_grouped = len(self.hasher._hashes)  # noqa: SLF001
-        for photo_id, value in self.hasher._hashes.items():  # noqa: SLF001 — no public getter yet
+        self._hashes_grouped = len(self.hasher.hashes())
+        for photo_id, value in self.hasher.hashes().items():
             dedup.set_hash(photo_id, value)
         for photo, raw in self.scored.values():
             dedup.add(photo, raw)
