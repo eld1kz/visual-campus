@@ -20,6 +20,8 @@ MIN_NAME_SIMILARITY = 0.6
 RESOLVE_MIN_NAME_SIMILARITY = 0.9
 RESOLVE_MIN_SCORE = 0.7
 RESOLVE_MIN_GAP = 0.1
+# Below this the best candidate only shares generic words ("Technical University of …"): say not found.
+NOT_FOUND_BELOW_SCORE = 0.55
 SAME_PLACE_KM = 15
 
 
@@ -129,7 +131,7 @@ def decide(groups: list[Merged], query: str) -> tuple[str, list[Merged]]:
         key=lambda g: g.score,
         reverse=True,
     )
-    if not ranked:
+    if not ranked or ranked[0].score < NOT_FOUND_BELOW_SCORE:
         return "not_found", []
     best = ranked[0]
     gap = best.score - ranked[1].score if len(ranked) > 1 else 1.0

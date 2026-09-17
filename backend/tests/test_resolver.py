@@ -57,3 +57,11 @@ def test_nothing_similar_is_not_found():
     for g in groups:
         score(g, "Xyzzqq Blorft Institute", None)
     assert decide(groups, "Xyzzqq Blorft Institute")[0] == "not_found"
+
+
+def test_only_generic_word_overlap_is_not_found():
+    # "Hogwarts Technical University of Almaty": best real matches only share "Technical University".
+    groups = merge([_ror("Technical University of Angola", "Luanda")], [])
+    for g in groups:
+        g.name_similarity, g.score = 0.62, 0.43
+    assert decide(groups, "Hogwarts Technical University of Almaty")[0] == "not_found"
