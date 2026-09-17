@@ -4,6 +4,7 @@ One `ProfileBuild` per (qid, lang) at a time (single-flight via cache.inflight);
 """
 
 import asyncio
+import inspect
 import logging
 import time
 from datetime import date
@@ -179,10 +180,13 @@ class ProfileBuild:
         self.final: list[Photo] = []
         self.counts: dict[str, int] = {}
         self.hasher = Deduplicator()  # only its pHash cache is used; groups are rebuilt in _refresh
+        self.dedup = Deduplicator()  # current groups: new batches are added incrementally, _refresh rebuilds
         self.summary: Summary | None = None
         self.deadline_hit = False
         self._children: set[asyncio.Task] = set()
         self._hash_tasks: set[asyncio.Task] = set()
+        self._to_hash: list[RawImage] = []
+        self._hashes_grouped = 0  # pHashes known at the last full regroup
 
     def start(self) -> None:
         self.task = asyncio.create_task(self._run())
@@ -274,7 +278,8 @@ class ProfileBuild:
             _, hash_pending = await asyncio.wait(self._hash_tasks, timeout=max(self._left(), 0))
             for task in hash_pending:
                 task.cancel()
-        self._refresh()
+        if len(self.hasher._hashes) != self._hashes_grouped:  # noqa: SLF001
+            self._refresh()
         for name in SOURCE_NAMES:  # counts may change after late duplicates were found
             result = self.results.get(name)
             if result is not None and self._count(name) != self.counts.get(name):
@@ -317,23 +322,33 @@ class ProfileBuild:
         self._finish(result)
 
     async def _photos(self, name: str, collect, query: SourceQuery, client: httpx.AsyncClient) -> None:
+        """Photos are scored and sent batch by batch as the collector hands them out; the result gives the status."""
         started = time.perf_counter()
-        try:
-            result = await asyncio.wait_for(collect(query, client), timeout=SOURCE_TIMEOUT_S)
-        except asyncio.TimeoutError:
-            result = SourceResult(name=name, status="timeout", took_ms=_ms(started))
-        new = self._ingest(result.images)
-        self._finish(result)
-        if new:  # photos are already sent; perceptual duplicates are found in the background
-            self._hash_tasks.add(asyncio.create_task(self._hash(new, client)))
 
-    async def _hash(self, raws: list[RawImage], client: httpx.AsyncClient) -> None:
-        await self.hasher.prepare(raws, client)
-        self._refresh()
-        for name in PHOTO_COLLECTORS:
-            result = self.results.get(name)
-            if result is not None and self._count(name) != self.counts.get(name):
-                self._finish(result)
+        def on_batch(raws: list[RawImage]) -> None:
+            self._ingest(raws, client)
+
+        call = collect(query, client, on_batch=on_batch) if "on_batch" in inspect.signature(collect).parameters \
+            else collect(query, client)
+        try:
+            result = await asyncio.wait_for(call, timeout=SOURCE_TIMEOUT_S)
+        except asyncio.TimeoutError:  # batches that already arrived stay in the profile
+            result = SourceResult(name=name, status="timeout", took_ms=_ms(started))
+        self._ingest(result.images, client)  # no-op for images that came in batches
+        self._finish(result)
+
+    async def _hash(self, client: httpx.AsyncClient) -> None:
+        """One worker per build: hashes new photos in turn, so the shared hash budget is spent sequentially."""
+        while self._to_hash:
+            raws, self._to_hash = self._to_hash, []
+            await self.hasher.prepare(raws, client)
+            if len(self.hasher._hashes) == self._hashes_grouped:  # noqa: SLF001 — nothing new to group by
+                continue
+            self._refresh()
+            for name in PHOTO_COLLECTORS:
+                result = self.results.get(name)
+                if result is not None and self._count(name) != self.counts.get(name):
+                    self._finish(result)
 
     async def _wikipedia(self, uni: UniversityRecord, client: httpx.AsyncClient) -> None:
         started = time.perf_counter()
@@ -368,22 +383,39 @@ class ProfileBuild:
         if polygon is None and not shape.buildings:
             return
         self.ctx.polygon, self.ctx.buildings = polygon, shape.buildings
-        self.scored = {rid: (p, raw) for rid, raw in self.raws.items() if (p := score(raw, self.ctx))}
-        self._refresh()
+        rescored = {rid: (p, raw) for rid, raw in self.raws.items() if (p := score(raw, self.ctx))}
+        if rescored.keys() != self.scored.keys():
+            self.scored = rescored
+            self._refresh()
+            return
+        self.scored = rescored  # same photos, new scores: groups do not depend on scores, update them in place
+        self._send(p for photo, raw in rescored.values() for p in self.dedup.add(photo, raw))
+        self.final = self.dedup.photos()
 
-    def _ingest(self, raws: list[RawImage]) -> list[RawImage]:
-        new = []
+    def _ingest(self, raws: list[RawImage], client: httpx.AsyncClient) -> None:
+        """Upsert images by id: an unchanged repeat is ignored, a changed one is re-scored."""
+        added, regroup = [], False
         for raw in raws:
-            if raw.id in self.raws:
+            known = self.raws.get(raw.id)
+            if known == raw:
                 continue
             self.raws[raw.id] = raw
             photo = score(raw, self.ctx)
-            if photo is not None:
-                self.scored[raw.id] = (photo, raw)
-                new.append(raw)
-        if new:
+            if photo is None:
+                regroup = regroup or self.scored.pop(raw.id, None) is not None
+                continue
+            self.scored[raw.id] = (photo, raw)
+            added.append((photo, raw))
+            if known is None:
+                self._to_hash.append(raw)
+        if regroup:
             self._refresh()
-        return new
+        elif added:  # a full regroup is O(n²): per batch only the new/changed photos are placed into groups
+            self._send(p for photo, raw in added for p in self.dedup.add(photo, raw))
+            self.final = self.dedup.photos()
+        if self._to_hash and not any(not t.done() for t in self._hash_tasks):
+            # photos are already sent; perceptual duplicates are found in the background
+            self._hash_tasks.add(asyncio.create_task(self._hash(client)))
 
     def _refresh(self) -> None:
         """Regroup all scored photos with every pHash known so far and send the photos that changed.
@@ -392,12 +424,18 @@ class ProfileBuild:
         withdrawn — the new main photo is sent with the earlier id in its `duplicates`; no new event type.
         """
         dedup = Deduplicator()
+        self._hashes_grouped = len(self.hasher._hashes)  # noqa: SLF001
         for photo_id, value in self.hasher._hashes.items():  # noqa: SLF001 — no public getter yet
             dedup.set_hash(photo_id, value)
         for photo, raw in self.scored.values():
             dedup.add(photo, raw)
+        self.dedup = dedup
         self.final = dedup.photos()
-        for photo in self.final:
+        self._send(self.final)
+
+    def _send(self, photos) -> None:
+        """Send only photos whose event differs from what the client already has."""
+        for photo in photos:
             if self.sent.get(photo.id) != photo:
                 self.sent[photo.id] = photo
                 self.log.emit("photo", photo.model_dump())

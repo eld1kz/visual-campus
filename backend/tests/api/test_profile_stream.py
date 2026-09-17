@@ -110,3 +110,34 @@ def test_more_confident_copy_takes_over_and_lists_the_earlier_one(fake):
     last = [d for e, d in events if e == "photo" and d["id"] == "flickr-7"][-1]
     assert [dup["id"] for dup in last["duplicates"]] == ["commons-7"]
     assert events[-1][1]["stats"]["photos"] == 1 and events[-1][1]["stats"]["duplicates"] == 1
+
+
+def test_first_photo_is_sent_before_the_collector_finishes(fake):
+    first = raw("commons-1")
+    fake["set"]("wikimedia_commons", collector("wikimedia_commons", [first, raw("commons-2")], delay=0.3,
+                                               batches=[[first]]))
+    fake["set"]("flickr", collector("flickr", delay=0.1))
+    events = parse_sse(run(get(f"/profile/{QID}?lang=en")).text)
+    first_photo = next(i for i, (e, d) in enumerate(events) if e == "photo" and d["id"] == "commons-1")
+    flickr_done = next(i for i, (e, d) in enumerate(events) if e == "source_status" and d["name"] == "flickr"
+                       and d["status"] != "pending")
+    commons_done = next(i for i, (e, d) in enumerate(events) if e == "source_status"
+                        and d["name"] == "wikimedia_commons" and d["status"] != "pending")
+    assert first_photo < flickr_done < commons_done
+    assert final_statuses(events)["wikimedia_commons"]["count"] == 2
+    assert events[-1][1]["stats"]["photos"] == 2
+
+
+def test_repeated_batches_resend_a_photo_only_when_it_changed(fake):
+    fake["state"]["osm_delay"] = 0.3  # the polygon arrives after Commons is done
+    weak = raw("commons-1", matched_category=None, found_by="text")
+    strong = raw("commons-1")
+    fake["set"]("wikimedia_commons", collector("wikimedia_commons", [strong],
+                                               batches=[[weak], [weak], [weak.model_copy()], [strong], [strong]]))
+    events = parse_sse(run(get(f"/profile/{QID}?lang=en")).text)
+    commons_done = next(i for i, (e, d) in enumerate(events) if e == "source_status"
+                        and d["name"] == "wikimedia_commons" and d["status"] != "pending")
+    before = [d for e, d in events[:commons_done] if e == "photo" and d["id"] == "commons-1"]
+    assert len(before) == 2  # weak once, strong once — not once per repeat
+    assert before[0] != before[1]
+    assert events[-1][1]["stats"]["photos"] == 1

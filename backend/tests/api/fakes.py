@@ -46,8 +46,13 @@ def shape() -> CampusShape:
     return CampusShape(polygon=POLYGON, area_km2=0.6, osm_url="https://www.openstreetmap.org/way/9", buildings=[hall])
 
 
-def collector(name, images=(), status="ok", delay=0.0, detail=None, exc=None):
-    async def collect(query, client):
+def collector(name, images=(), status="ok", delay=0.0, detail=None, exc=None, batches=()):
+    """`batches`: lists of images handed to `on_batch` before the delay, like the real collectors do."""
+    async def collect(query, client, on_batch=None):
+        for batch in batches:
+            if on_batch:
+                on_batch(list(batch))
+            await asyncio.sleep(0)
         await asyncio.sleep(delay)
         if exc:
             raise exc
