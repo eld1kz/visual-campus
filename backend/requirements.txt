@@ -4,3 +4,5 @@ httpx==0.28.1
 pydantic==2.11.4
 python-dotenv==1.1.0
 shapely==2.1.1
+imagehash==4.3.2
+Pillow==12.3.0
