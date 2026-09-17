@@ -1,3 +1,5 @@
+"""Image and campus-shape collectors (docs/CONTRACT.md §6), plus the generic `run_source` wrapper."""
+
 import asyncio
 import logging
 import time
@@ -5,6 +7,10 @@ from collections.abc import Awaitable
 from typing import Literal, TypeVar
 
 import httpx
+
+from app.services.sources.base import SourceQuery
+
+__all__ = ["SourceQuery", "run_source"]
 
 logger = logging.getLogger("visual_campus.sources")
 
