@@ -20,7 +20,7 @@ export function ChatDrawer() {
     if (body.current) body.current.scrollTop = body.current.scrollHeight;
   }, [guide.messages, guide.error]);
 
-  if (!guide.chatOpen) return null;
+  if (!guide.chatOpen || !guide.available) return null;
 
   const submit = () => {
     if (guide.busy) return;

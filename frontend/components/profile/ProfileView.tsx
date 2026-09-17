@@ -6,14 +6,14 @@ import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { CampusMapSection } from "@/components/map/CampusMapSection";
 import { PhotoDetail } from "@/components/photos/PhotoDetail";
 import { PhotosSection } from "@/components/photos/PhotosSection";
-import { SourcesBanner } from "@/components/search/SourcesBanner";
 import { DemoDataPlate } from "@/components/ui/DemoDataPlate";
 import { WarningBanner } from "@/components/ui/WarningBanner";
 import { MAP } from "@/lib/mock/map";
-import { PROFILE } from "@/lib/mock/profile";
 import { CATEGORIES, type PhotoTab } from "@/lib/photos";
 import type { Photo, PhotoCategory, Profile, ProfileStats } from "@/lib/types";
 import { AboutSection } from "./AboutSection";
+import { LiveMapPlaceholder } from "./LiveMapPlaceholder";
+import { PartialBanner } from "./PartialBanner";
 import { ProfileHeader } from "./ProfileHeader";
 import { SectionTabs, type ProfileSection } from "./SectionTabs";
 
@@ -24,10 +24,12 @@ type Props = {
   stats: ProfileStats;
   /** true: data from GET /profile; false: the design's demo data. */
   live: boolean;
+  /** Live only: the backend marked the profile incomplete (done.partial). */
+  partial?: boolean;
   params: URLSearchParams;
 };
 
-export function ProfileView({ profile, stats, live, params }: Props) {
+export function ProfileView({ profile, stats, live, partial = false, params }: Props) {
   const { t } = usePreferences();
   const tabParam = params.get("tab");
   const initialTab: PhotoTab = CATEGORIES.includes(tabParam as PhotoCategory) ? (tabParam as PhotoCategory) : "all";
@@ -56,7 +58,7 @@ export function ProfileView({ profile, stats, live, params }: Props) {
   return (
     <div className="mx-auto max-w-[1240px] px-[22px] pb-[90px] pt-[30px]">
       {live ? (
-        <SourcesBanner sources={profile.sources_status} />
+        <PartialBanner partial={partial} sources={profile.sources_status} />
       ) : (
         <>
           <DemoDataPlate className="mb-[18px]" />
@@ -72,7 +74,13 @@ export function ProfileView({ profile, stats, live, params }: Props) {
         university={profile.university}
         generatedInMs={profile.generated_in_ms}
         stats={stats}
-        aside={<GuideGreeting universityName={profile.university.name} />}
+        aside={
+          live ? (
+            <span className="max-w-[210px] text-xs text-ink-3">{t.live.guideDemoOnly}</span>
+          ) : (
+            <GuideGreeting universityName={profile.university.name} />
+          )
+        }
       />
       <AboutSection profile={profile} onOpenMap={() => setSection("map")} />
       <SectionTabs active={section} onChange={setSection} />
@@ -86,18 +94,18 @@ export function ProfileView({ profile, stats, live, params }: Props) {
         />
       )}
 
-      {section === "map" && (
-        <>
-          {/* The campus map is not connected to the API yet: it always shows the demo campus. */}
-          {live && <DemoDataPlate className="mb-3.5" />}
+      {section === "map" &&
+        (live ? (
+          // The campus map is not connected to the API yet: show real facts instead of the demo campus.
+          <LiveMapPlaceholder university={profile.university} />
+        ) : (
           <CampusMapSection
             data={MAP}
-            photos={live ? PROFILE.photos : profile.photos}
+            photos={profile.photos}
             initialBuildingId={params.get("building")}
             onOpenPhoto={openById}
           />
-        </>
-      )}
+        ))}
 
       {open && <PhotoDetail photo={open.list[open.index]} onPrev={prev} onNext={next} onClose={close} />}
     </div>

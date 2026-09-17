@@ -7,6 +7,9 @@ const NAMES: Record<string, Partial<Record<Lang, string>>> = {
   openstreetmap: { ru: "OpenStreetMap", en: "OpenStreetMap" },
   wikimedia_commons: { ru: "Wikimedia Commons", en: "Wikimedia Commons" },
   wikipedia: { ru: "Wikipedia", en: "Wikipedia" },
+  flickr: { ru: "Flickr", en: "Flickr" },
+  mapillary: { ru: "Mapillary", en: "Mapillary" },
+  official_site: { ru: "Официальный сайт", en: "Official website" },
   "Официальный сайт": { en: "Official website" },
   "Веб-поиск": { en: "Web search" },
 };

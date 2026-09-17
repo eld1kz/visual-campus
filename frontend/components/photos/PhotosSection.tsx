@@ -25,7 +25,8 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
 
   const visible = filterPhotos(photos, { tab, tags, sort, showUnconfirmed });
-  const searchedIn = sources.filter((s) => s.status !== "error" && s.status !== "skipped").map((s) => sourceLabel(s.name, lang));
+  // Where we looked: sources that actually ran (a failed or skipped source did not search anything).
+  const searchedIn = sources.filter((s) => s.status === "ok" || s.status === "timeout").map((s) => sourceLabel(s.name, lang));
 
   return (
     <>
@@ -47,7 +48,7 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
       )}
 
       {visible.length === 0 ? (
-        <EmptyCategory searchedIn={searchedIn} />
+        <EmptyCategory searchedIn={searchedIn} noPhotos={photos.length === 0} />
       ) : (
         <div className="columns-[4_250px] gap-x-3.5">
           {visible.map((photo, i) => (

@@ -8,9 +8,9 @@ import { useGuide } from "./GuideProvider";
 /** 62px round button that opens the chat. Hidden on the live search page (the guide is demo-only). */
 export function GuideFab() {
   const { t } = usePreferences();
-  const { hidden, chatOpen, openChat, bounce } = useGuide();
+  const { hidden, chatOpen, openChat, bounce, available } = useGuide();
   const pathname = usePathname();
-  if (hidden || chatOpen || pathname === "/") return null;
+  if (hidden || chatOpen || !available || pathname === "/") return null;
 
   return (
     <button

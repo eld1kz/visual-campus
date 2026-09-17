@@ -28,6 +28,9 @@ type Guide = {
   send: (text: string) => void;
   retry: () => void;
   runAction: (action: ChatAction) => void;
+  /** false on a live (real API) profile: the guide only knows the demo university, so FAB and chat stay hidden. */
+  available: boolean;
+  setAvailable: (available: boolean) => void;
 };
 
 const GuideContext = createContext<Guide | null>(null);
@@ -51,6 +54,7 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessageView[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [available, setAvailableState] = useState(true);
   const mascotTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const thinkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const streamTimer = useRef<ReturnType<typeof setInterval>>(undefined);
@@ -132,6 +136,11 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
     [playMascot, router],
   );
 
+  const setAvailable = useCallback((value: boolean) => {
+    setAvailableState(value);
+    if (!value) setChatOpen(false);
+  }, []);
+
   const raw = BRAND[UNIVERSITY_ID];
   const brand = {
     primary: raw.colors.primary ?? NEUTRAL_BRAND.primary,
@@ -182,6 +191,8 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
       ask(chip.key, chip.label);
     },
     runAction,
+    available,
+    setAvailable,
   };
 
   return <GuideContext.Provider value={value}>{children}</GuideContext.Provider>;
