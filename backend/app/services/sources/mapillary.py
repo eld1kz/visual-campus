@@ -10,7 +10,7 @@ import httpx
 
 from app.config import settings
 from app.models import RawImage, SourceResult
-from app.services.sources.base import Deadline, Skip, SourceQuery, query_bbox, run_collector
+from app.services.sources.base import Batches, Deadline, OnBatch, Skip, SourceQuery, query_bbox, run_collector
 
 GRAPH_IMAGES = "https://graph.mapillary.com/images"
 LIMIT = 500
@@ -62,8 +62,8 @@ def parse_image(item: dict) -> RawImage | None:
     )
 
 
-async def collect(query: SourceQuery, client: httpx.AsyncClient) -> SourceResult:
-    async def work(acc: dict[str, RawImage], deadline: Deadline) -> str | None:
+async def collect(query: SourceQuery, client: httpx.AsyncClient, on_batch: OnBatch | None = None) -> SourceResult:
+    async def work(acc: Batches, deadline: Deadline) -> str | None:
         if not settings.mapillary_token:
             raise Skip("MAPILLARY_TOKEN is not set")
         bbox = query_bbox(query)
@@ -79,4 +79,4 @@ async def collect(query: SourceQuery, client: httpx.AsyncClient) -> SourceResult
                 acc[raw.id] = raw
         return None
 
-    return await run_collector("mapillary", work)
+    return await run_collector("mapillary", work, on_batch=on_batch)

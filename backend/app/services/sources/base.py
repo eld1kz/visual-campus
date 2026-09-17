@@ -59,16 +59,53 @@ def query_bbox(query: SourceQuery, half_km: float = 0.6) -> tuple[float, float, 
     return None
 
 
+OnBatch = Callable[[list[RawImage]], None]
+
+
+class Batches(dict[str, RawImage]):
+    """Results so far, keyed by id. `flush()` hands the images added or replaced since the last flush to `on_batch`."""
+
+    def __init__(self, name: str, on_batch: OnBatch | None) -> None:
+        super().__init__()
+        self._name = name
+        self._on_batch = on_batch
+        self._pending: dict[str, None] = {}  # ordered set of ids
+
+    def __setitem__(self, key: str, value: RawImage) -> None:
+        super().__setitem__(key, value)
+        self._pending[key] = None
+
+    def setdefault(self, key: str, default: RawImage) -> RawImage:  # dict.setdefault bypasses __setitem__
+        if key not in self:
+            self[key] = default
+        return self[key]
+
+    def flush(self) -> None:
+        if not self._pending:
+            return
+        batch = [self[key] for key in self._pending]
+        self._pending = {}
+        if self._on_batch is None:
+            return
+        try:
+            self._on_batch(batch)
+        except Exception:  # a consumer bug must not turn the source into an error
+            logger.exception("on_batch callback of %s failed", self._name)
+
+
 async def run_collector(
     name: SourceName,
-    work: Callable[[dict[str, RawImage], Deadline], Awaitable[str | None]],
+    work: Callable[[Batches, Deadline], Awaitable[str | None]],
     budget_s: float = SOURCE_BUDGET_S,
+    on_batch: OnBatch | None = None,
 ) -> SourceResult:
     """Run `work` under the source budget. `work` fills `acc` as results arrive, so a timeout keeps them.
 
+    `work` calls `acc.flush()` whenever a batch is ready; whatever is left unflushed is flushed here before returning,
+    so the batches (last version per id) always add up to `SourceResult.images`.
     Partial results at the deadline are reported as `ok` (with a detail), an empty timeout as `timeout`.
     """
-    acc: dict[str, RawImage] = {}
+    acc = Batches(name, on_batch)
     started = time.perf_counter()
     detail: str | None = None
     try:
@@ -82,6 +119,7 @@ async def run_collector(
     except Exception as exc:  # a collector never raises
         logger.exception("Source %s failed", name)
         status, detail = "error", f"{type(exc).__name__}: {exc}"
+    acc.flush()
     result = SourceResult(name=name, status=status, took_ms=elapsed_ms(started), images=list(acc.values()), detail=detail)
     logger.info("source=%s status=%s images=%d in %d ms", name, status, len(acc), result.took_ms)
     return result

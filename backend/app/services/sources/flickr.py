@@ -11,7 +11,7 @@ import httpx
 
 from app.config import settings
 from app.models import RawImage, SourceResult
-from app.services.sources.base import MIN_SIDE_PX, Deadline, Skip, SourceQuery, query_bbox, run_collector
+from app.services.sources.base import MIN_SIDE_PX, Batches, Deadline, OnBatch, Skip, SourceQuery, query_bbox, run_collector
 
 FLICKR_REST = "https://api.flickr.com/services/rest/"
 PER_PAGE = 250
@@ -92,8 +92,8 @@ def parse_photo(item: dict) -> RawImage | None:
     )
 
 
-async def collect(query: SourceQuery, client: httpx.AsyncClient) -> SourceResult:
-    async def work(acc: dict[str, RawImage], deadline: Deadline) -> str | None:
+async def collect(query: SourceQuery, client: httpx.AsyncClient, on_batch: OnBatch | None = None) -> SourceResult:
+    async def work(acc: Batches, deadline: Deadline) -> str | None:
         if not settings.flickr_api_key:
             raise Skip("FLICKR_API_KEY is not set")
         bbox = query_bbox(query)
@@ -114,8 +114,9 @@ async def collect(query: SourceQuery, client: httpx.AsyncClient) -> SourceResult
             for item in photos.get("photo", []):
                 if raw := parse_photo(item):
                     acc[raw.id] = raw
+            acc.flush()
             if page >= int(photos.get("pages") or 0):
                 break
         return None
 
-    return await run_collector("flickr", work)
+    return await run_collector("flickr", work, on_batch=on_batch)

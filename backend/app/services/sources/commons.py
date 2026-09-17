@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.models import RawImage, SourceResult
-from app.services.sources.base import MIN_SIDE_PX, Deadline, Skip, SourceQuery, run_collector
+from app.services.sources.base import MIN_SIDE_PX, Batches, Deadline, OnBatch, Skip, SourceQuery, run_collector
 from app.services.sources.geo import distance_m
 
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -136,10 +136,11 @@ def to_raw(f: CommonsFile) -> RawImage:
 class _Harvest:
     """Collects files for one university; `files` is complete-so-far at any moment (safe to read after a timeout)."""
 
-    def __init__(self, client: httpx.AsyncClient, deadline: Deadline, on_file=None) -> None:
+    def __init__(self, client: httpx.AsyncClient, deadline: Deadline, on_file=None, on_batch_end=None) -> None:
         self.client = client
         self.deadline = deadline
         self.on_file = on_file or (lambda f: None)
+        self.on_batch_end = on_batch_end or (lambda: None)  # called after each metadata chunk / provenance update
         self.files: dict[int, CommonsFile] = {}
         self._origin: dict[int, tuple[int, str | None]] = {}  # pageid → (rank, category); 0 main, 1 sub, 2 nearby
         self._requested: set[int] = set()
@@ -221,11 +222,14 @@ class _Harvest:
             self._apply(f)
             self.files[f.pageid] = f
             self.on_file(f)
+        self.on_batch_end()
 
     async def category(self, category: str) -> None:
         async def files_of(cat: str, rank: int, limit: int) -> None:
             members = await self._members(cat, "file", limit)
-            await self._details(self._note([m["pageid"] for m in members], rank, cat))
+            new = self._note([m["pageid"] for m in members], rank, cat)
+            self.on_batch_end()  # files already fetched via another category may have changed provenance
+            await self._details(new)
 
         async def subcategories() -> None:
             subs = [m["title"].removeprefix("Category:") for m in await self._members(category, "subcat", 200)]
@@ -238,7 +242,9 @@ class _Harvest:
         data = await self._get({"list": "geosearch", "gscoord": f"{lat}|{lng}", "gsradius": max(10, min(radius_m, 10_000)),
                                 "gsnamespace": 6, "gslimit": GEOSEARCH_LIMIT})
         ids = [g["pageid"] for g in data.get("query", {}).get("geosearch", [])]
-        await self._details(self._note(ids, 2, None))
+        new = self._note(ids, 2, None)
+        self.on_batch_end()
+        await self._details(new)
 
 
 async def _harvest(harvest: _Harvest, category: str | None, lat: float | None, lng: float | None, radius_m: int) -> None:
@@ -257,8 +263,8 @@ def _radius_m(query: SourceQuery) -> int:
     return int(max(NEARBY_RADIUS_M, distance_m(south, west, north, east) / 2))
 
 
-async def collect(query: SourceQuery, client: httpx.AsyncClient) -> SourceResult:
-    async def work(acc: dict[str, RawImage], deadline: Deadline) -> str | None:
+async def collect(query: SourceQuery, client: httpx.AsyncClient, on_batch: OnBatch | None = None) -> SourceResult:
+    async def work(acc: Batches, deadline: Deadline) -> str | None:
         has_point = query.lat is not None and query.lng is not None
         if not query.commons_category and not has_point:
             raise Skip("no Commons category and no coordinates")
@@ -267,8 +273,8 @@ async def collect(query: SourceQuery, client: httpx.AsyncClient) -> SourceResult
             raw = to_raw(f)
             acc[raw.id] = raw
 
-        harvest = _Harvest(client, deadline, publish)
+        harvest = _Harvest(client, deadline, publish, acc.flush)
         await _harvest(harvest, query.commons_category, query.lat, query.lng, _radius_m(query))
         return None
 
-    return await run_collector("wikimedia_commons", work)
+    return await run_collector("wikimedia_commons", work, on_batch=on_batch)
