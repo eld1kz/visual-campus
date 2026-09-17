@@ -79,3 +79,9 @@ def test_collect_skips_without_category_and_point():
             return await commons.collect(SourceQuery("Q1", [], None, None, None, None), client)
 
     assert asyncio.run(run()).status == "skipped"
+
+
+def test_parse_date_handles_commons_formats():
+    assert commons.parse_date("2012-05-20 14:03:22") == "2012-05-20"
+    assert commons.parse_date('1970s<div style="display: none;">date QS:P,+1970</div>') == "1970"
+    assert commons.parse_date(None) is None

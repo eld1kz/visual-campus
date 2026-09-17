@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.models import RawImage, SourceResult
-from app.services.sources.base import MIN_SIDE_PX, SOURCE_BUDGET_S, Deadline, Skip, SourceQuery, run_collector
+from app.services.sources.base import MIN_SIDE_PX, Deadline, Skip, SourceQuery, run_collector
 from app.services.sources.geo import distance_m
 
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -248,19 +248,6 @@ async def _harvest(harvest: _Harvest, category: str | None, lat: float | None, l
     if lat is not None and lng is not None:
         tasks.append(harvest.nearby(lat, lng, radius_m))
     await asyncio.gather(*tasks)
-
-
-async def collect_files(
-    client: httpx.AsyncClient, category: str | None, lat: float | None, lng: float | None, radius_m: int
-) -> list[CommonsFile]:
-    """Legacy entry point for services/profile.py: files found within the source budget."""
-    harvest = _Harvest(client, Deadline(SOURCE_BUDGET_S))
-    try:
-        await asyncio.wait_for(_harvest(harvest, category, lat, lng, radius_m), timeout=SOURCE_BUDGET_S)
-    except (asyncio.TimeoutError, httpx.TimeoutException):
-        if not harvest.files:
-            raise
-    return list(harvest.files.values())
 
 
 def _radius_m(query: SourceQuery) -> int:

@@ -183,6 +183,7 @@ class UniversityRecord:
     country: str | None
     wikipedia_titles: dict[str, str]
     city_center: Place | None
+    entity: dict = field(default_factory=dict, repr=False)
 
 
 def _item_ids(entity: dict, prop: str) -> list[str]:
@@ -213,7 +214,10 @@ async def _find_city_center(client: httpx.AsyncClient, entity: dict, lang: str) 
     return None
 
 
-async def get_university(client: httpx.AsyncClient, qid: str, lang: str = "en") -> UniversityRecord | None:
+async def get_university(
+    client: httpx.AsyncClient, qid: str, lang: str = "en", with_places: bool = True
+) -> UniversityRecord | None:
+    """with_places=False skips city/country labels and the city centre walk (~1.3 s); fill them later with add_places()."""
     data = await _get(
         client,
         WIKIDATA_API,
@@ -228,15 +232,10 @@ async def get_university(client: httpx.AsyncClient, qid: str, lang: str = "en") 
     names = [v["value"] for v in entity.get("labels", {}).values()]
     names += [a["value"] for aliases in entity.get("aliases", {}).values() for a in aliases]
 
-    city_ids, country_ids = _item_ids(entity, P_LOCATED_IN), _item_ids(entity, P_COUNTRY)
-    places, city_center = await asyncio.gather(
-        _entities(client, city_ids[:1] + country_ids[:1], "labels"),
-        _find_city_center(client, entity, lang),
-    )
     coords = _claim_value(entity, P_COORDS) or {}
     sitelinks = entity.get("sitelinks", {})
 
-    return UniversityRecord(
+    record = UniversityRecord(
         wikidata_id=qid,
         name=name,
         name_en=_label(entity, "en") or name,
@@ -246,12 +245,28 @@ async def get_university(client: httpx.AsyncClient, qid: str, lang: str = "en") 
         website=_claim_value(entity, P_WEBSITE),
         commons_category=_claim_value(entity, P_COMMONS_CATEGORY),
         ror_id=_claim_value(entity, P_ROR),
-        city=_label(places[city_ids[0]], lang) if city_ids and city_ids[0] in places else None,
-        country=_label(places[country_ids[0]], lang) if country_ids and country_ids[0] in places else None,
+        city=None,
+        country=None,
         wikipedia_titles={
             code.removesuffix("wiki"): link["title"]
             for code, link in sitelinks.items()
             if code in ("enwiki", "ruwiki", "kowiki")
         },
-        city_center=city_center,
+        city_center=None,
+        entity=entity,
     )
+    if with_places:
+        await add_places(client, record, lang)
+    return record
+
+
+async def add_places(client: httpx.AsyncClient, uni: UniversityRecord, lang: str) -> None:
+    """Fills city, country and city_center in place."""
+    city_ids, country_ids = _item_ids(uni.entity, P_LOCATED_IN), _item_ids(uni.entity, P_COUNTRY)
+    places, city_center = await asyncio.gather(
+        _entities(client, city_ids[:1] + country_ids[:1], "labels"),
+        _find_city_center(client, uni.entity, lang),
+    )
+    uni.city = _label(places[city_ids[0]], lang) if city_ids and city_ids[0] in places else None
+    uni.country = _label(places[country_ids[0]], lang) if country_ids and country_ids[0] in places else None
+    uni.city_center = city_center

@@ -62,7 +62,7 @@ def fake(monkeypatch):
     calls = {"wikidata": 0, "osm": 0}
     state = {"record": record(), "wikidata_exc": None, "osm_delay": 0.0, "shape": shape()}
 
-    async def get_university(client, qid, lang="en"):
+    async def get_university(client, qid, lang="en", with_places=True):
         calls["wikidata"] += 1
         await asyncio.sleep(0.01)
         if state["wikidata_exc"]:
@@ -78,7 +78,11 @@ def fake(monkeypatch):
         return WikiSummary(text="Korea University is in Seoul.", url="https://en.wikipedia.org/wiki/Korea_University",
                            title="Korea University", lang="en")
 
+    async def add_places(client, uni, lang):
+        return None
+
     monkeypatch.setattr(orchestrator, "get_university", get_university)
+    monkeypatch.setattr(orchestrator, "add_places", add_places)
     monkeypatch.setattr(campus_router, "get_university", get_university)
     monkeypatch.setattr(osm, "find_campus", find_campus)
     monkeypatch.setattr(orchestrator, "wikipedia_summary", wiki)

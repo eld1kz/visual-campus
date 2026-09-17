@@ -22,7 +22,7 @@ from app.services.sources import commons, flickr, mapillary, official_site, osm,
 from app.services.sources.base import SourceQuery
 from app.services.sources.geo import distance_m
 from app.services.summary import SourceText, build_summary, extract_summary
-from app.services.wikidata import UniversityRecord, get_university
+from app.services.wikidata import UniversityRecord, add_places, get_university
 from app.services.wikipedia import summary as wikipedia_summary
 
 logger = logging.getLogger("visual_campus.orchestrator")
@@ -223,7 +223,7 @@ class ProfileBuild:
 
     async def _wikidata(self, client: httpx.AsyncClient) -> UniversityRecord | None:
         started = time.perf_counter()
-        state, uni = await run_source("wikidata", get_university(client, self.qid, self.lang), WIKIDATA_TIMEOUT_S)
+        state, uni = await run_source("wikidata", get_university(client, self.qid, self.lang, with_places=False), WIKIDATA_TIMEOUT_S)
         if state != "ok":
             self.ready.set_exception(ProfileUnavailable(state))
             return None
@@ -238,6 +238,7 @@ class ProfileBuild:
 
     async def _collect(self, uni: UniversityRecord, client: httpx.AsyncClient) -> None:
         names = search_names(uni)
+        places_task = self._spawn(self._places(uni, client))  # city centre is only needed for `done`
         shape = cache.get_shape(self.qid)
         self.ctx = CampusContext(
             names=names, lat=uni.lat, lng=uni.lng, polygon=None, buildings=[],
@@ -281,7 +282,17 @@ class ProfileBuild:
         if self.summary is None:
             self.summary = extract_wiki(self.wiki)
             self.log.emit("summary", self.summary.model_dump())
+        await asyncio.wait([places_task], timeout=max(self._left(), 0))
         self._done(uni)
+
+    async def _places(self, uni: UniversityRecord, client: httpx.AsyncClient) -> None:
+        """City, country and city centre; on failure the profile just has no distance to the centre."""
+        try:
+            await add_places(client, uni, self.lang)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001
+            logger.exception("City centre lookup failed for %s", self.qid)
 
     async def _guard(self, name: str, coro) -> None:
         """A bug in one source must not break the stream: it becomes that source's `error`."""
