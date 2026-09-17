@@ -5,9 +5,11 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
+import shapely
 from shapely.geometry import Point, Polygon
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points
+from shapely.strtree import STRtree
 
 from app.models import Building, Evidence, Photo, RawImage
 from app.services.pipeline import categories as cat
@@ -87,6 +89,7 @@ def geo_evidence(raw: RawImage, ctx: CampusContext) -> tuple[Evidence, bool | No
         return _ev("missing", t["no_geo"], W_NO_GEO), None
 
     if ctx.polygon is not None:
+        shapely.prepare(ctx.polygon)  # once: a no-op when already prepared
         if ctx.polygon.contains(Point(raw.lng, raw.lat)):
             center = ctx.polygon.centroid if ctx.lat is None or ctx.lng is None else Point(ctx.lng, ctx.lat)
             d = fmt_distance(distance_m(center.y, center.x, raw.lat, raw.lng), ctx.lang)
@@ -115,14 +118,43 @@ def geo_evidence(raw: RawImage, ctx: CampusContext) -> tuple[Evidence, bool | No
     return _ev("geo", t["geo_away"].format(d=d), weight), False
 
 
+@dataclass
+class _BuildingIndex:
+    buildings: list[Building]  # the indexed list itself: keeps its id() from being reused while cached
+    size: int
+    shapes: list[tuple[Building, BaseGeometry]]  # prepared outlines, in list order
+    tree: STRtree
+
+
+_BUILDING_INDEXES: dict[int, _BuildingIndex] = {}
+_BUILDING_INDEXES_MAX = 16  # a few profiles being built at once
+
+
+def _building_index(buildings: list[Building]) -> _BuildingIndex:
+    """Outlines are built and prepared once per buildings list (lists are replaced, not mutated, by callers)."""
+    index = _BUILDING_INDEXES.get(id(buildings))
+    if index is not None and index.buildings is buildings and index.size == len(buildings):
+        return index
+    shapes = [(b, Polygon(b.polygon)) for b in buildings if len(b.polygon) >= 4]
+    for _, shape in shapes:
+        shapely.prepare(shape)
+    index = _BuildingIndex(buildings, len(buildings), shapes, STRtree([shape for _, shape in shapes]))
+    if len(_BUILDING_INDEXES) >= _BUILDING_INDEXES_MAX:
+        del _BUILDING_INDEXES[next(iter(_BUILDING_INDEXES))]
+    _BUILDING_INDEXES[id(buildings)] = index
+    return index
+
+
 def building_at(lat: float | None, lng: float | None, buildings: list[Building]) -> Building | None:
-    """The OSM building whose outline contains the geotag."""
-    if lat is None or lng is None:
+    """The OSM building whose outline contains the geotag (the first one in list order)."""
+    if lat is None or lng is None or not buildings:
         return None
+    index = _building_index(buildings)
     point = Point(lng, lat)
-    for b in buildings:
-        if len(b.polygon) >= 4 and Polygon(b.polygon).contains(point):
-            return b
+    for i in sorted(index.tree.query(point)):  # bounding-box candidates
+        building, shape = index.shapes[i]
+        if shape.contains(point):
+            return building
     return None
 
 

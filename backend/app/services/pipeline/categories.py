@@ -4,6 +4,7 @@ Multilingual (en/ru/ko + common European words), matched case-insensitively.
 """
 
 import re
+from functools import lru_cache
 
 from app.models import Building, RawImage
 
@@ -110,6 +111,15 @@ STUDENT_LIFE = re.compile(
 BUILDING_CATEGORY = {"library": "libraries", "dorm": "dorms"}
 BUILDING_TAG = {"dorm": "dorm", "sport": "sport", "lab": "labs"}
 
+# Text verdicts are cached by (title, description, categories): the same image is re-scored when the campus polygon
+# arrives, and these big patterns are most of score()'s time. Several profiles at ~500-1000 images each fit.
+TEXT_CACHE_SIZE = 8192
+_Text = tuple[str, str, tuple[str, ...]]
+
+
+def _key(raw: RawImage) -> _Text:
+    return raw.title, raw.description, tuple(raw.source_categories)
+
 
 def own_text(raw: RawImage) -> str:
     return f"{raw.title} {raw.description}"
@@ -120,20 +130,64 @@ def all_text(raw: RawImage) -> str:
 
 
 def is_not_a_place(raw: RawImage) -> bool:
-    return bool(NOT_A_PHOTO.search(own_text(raw)) or any(NOT_A_PHOTO_CATEGORY.search(c) for c in raw.source_categories))
+    return _not_a_place(*_key(raw))
 
 
 def is_people_or_event(raw: RawImage) -> bool:
-    return bool(
-        PEOPLE_OR_EVENT.search(all_text(raw))
-        or GROUP_OF_PEOPLE.search(raw.title)
-        or any(GROUP_OF_PEOPLE.search(c) or PERSON_CATEGORY.search(c) or EVENT_CATEGORY.search(c)
-               for c in raw.source_categories)
-    )
+    return _people_or_event(*_key(raw))
 
 
 def is_specimen(raw: RawImage) -> bool:
-    return bool(SPECIMEN.search(all_text(raw)) or any(SPECIMEN_CATEGORY.search(c) for c in raw.source_categories))
+    return _specimen(*_key(raw))
+
+
+@lru_cache(maxsize=TEXT_CACHE_SIZE)
+def _not_a_place(title: str, description: str, categories: tuple[str, ...]) -> bool:
+    return bool(NOT_A_PHOTO.search(f"{title} {description}") or any(NOT_A_PHOTO_CATEGORY.search(c) for c in categories))
+
+
+@lru_cache(maxsize=TEXT_CACHE_SIZE)
+def _people_or_event(title: str, description: str, categories: tuple[str, ...]) -> bool:
+    return bool(
+        PEOPLE_OR_EVENT.search(" ".join([title, description, *categories]))
+        or GROUP_OF_PEOPLE.search(title)
+        or any(GROUP_OF_PEOPLE.search(c) or PERSON_CATEGORY.search(c) or EVENT_CATEGORY.search(c) for c in categories)
+    )
+
+
+@lru_cache(maxsize=TEXT_CACHE_SIZE)
+def _specimen(title: str, description: str, categories: tuple[str, ...]) -> bool:
+    return bool(
+        SPECIMEN.search(" ".join([title, description, *categories])) or any(SPECIMEN_CATEGORY.search(c) for c in categories)
+    )
+
+
+@lru_cache(maxsize=TEXT_CACHE_SIZE)
+def _institution_in_text(title: str, description: str) -> str | None:
+    match = OTHER_INSTITUTION.search(f"{title} {description}")
+    return match.group(0) if match else None
+
+
+@lru_cache(maxsize=TEXT_CACHE_SIZE)
+def _text_classes(title: str, description: str, categories: tuple[str, ...]) -> tuple[str | None, tuple[str, ...]]:
+    """Category and tags from the text alone (step 2 of classify), in classify's tag order."""
+    text = " ".join([title, description, *categories])
+    dorm = bool(DORM.search(text))
+    category = "libraries" if LIBRARY.search(text) else "dorms" if dorm else "classrooms" if CLASSROOM.search(text) else None
+    tags: list[str] = []
+    if dorm:
+        tags.append("dorm")
+    if SPORT.search(text):
+        tags.append("sport")
+    # Labs only on explicit signs: the title or a category says lab; a description counts unless it is about people.
+    if LAB.search(title) or (
+        not _people_or_event(title, description, categories)
+        and (LAB.search(description) or any(LAB.search(c) for c in categories))
+    ):
+        tags.append("labs")
+    if STUDENT_LIFE.search(text):
+        tags.append("student_life")
+    return category, tuple(tags)
 
 
 def other_institution(raw: RawImage, names: list[str]) -> str | None:
@@ -146,9 +200,9 @@ def other_institution(raw: RawImage, names: list[str]) -> str | None:
     """
     if any(OTHER_INSTITUTION.search(n) for n in names):
         return None
-    match = OTHER_INSTITUTION.search(own_text(raw))
+    match = _institution_in_text(raw.title, raw.description)
     if match:
-        return match.group(0)
+        return match
     categories = [raw.matched_category, *raw.source_categories] if raw.matched_category else raw.source_categories
     own = [n.lower() for n in names if len(n) >= 4]
     return next((c for c in categories if OTHER_INSTITUTION.search(c) and not any(n in c.lower() for n in own)), None)
@@ -171,30 +225,13 @@ def classify(raw: RawImage, on_campus: bool | None, linked: bool, building: Buil
         tags.append(BUILDING_TAG[building.type])
 
     # 2. Text of the title, description and the file's own categories.
-    text = all_text(raw)
+    text_category, text_tags = _text_classes(*_key(raw))
     if category is None:
-        if LIBRARY.search(text):
-            category = "libraries"
-        elif DORM.search(text):
-            category = "dorms"
-        elif CLASSROOM.search(text):
-            category = "classrooms"
+        category = text_category
 
     # 3. Vision model — not available without LLM_API_KEY (see vision.py).
     # 4. Fallback: city only on positive signs that the photo is off campus and unrelated to the university.
     if category is None:
         category = "city" if on_campus is False and not linked else "campus"
 
-    people = is_people_or_event(raw)
-    if DORM.search(text):
-        tags.append("dorm")
-    if SPORT.search(text):
-        tags.append("sport")
-    # Labs only on explicit signs: the title or a category says lab; a description counts unless it is about people.
-    if LAB.search(raw.title) or (
-        not people and (LAB.search(raw.description) or any(LAB.search(c) for c in raw.source_categories))
-    ):
-        tags.append("labs")
-    if STUDENT_LIFE.search(text):
-        tags.append("student_life")
-    return category, list(dict.fromkeys(tags))
+    return category, list(dict.fromkeys([*tags, *text_tags]))
