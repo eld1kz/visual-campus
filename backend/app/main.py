@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -8,11 +10,22 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.routers import campus, health, profile, resolve
+from app.services.pipeline import vision
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("visual_campus")
 
-app = FastAPI(title="Visual Campus API", version="0.1.0")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load the CLIP model in the background: the server answers at once, profiles get vision when it is ready.
+    warm_up = asyncio.create_task(vision.warm_up())
+    yield
+    warm_up.cancel()
+
+
+app = FastAPI(title="Visual Campus API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

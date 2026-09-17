@@ -387,7 +387,10 @@ class CampusContext:
     lang: str
 
 def score(raw: RawImage, ctx: CampusContext) -> Photo | None   # чистая функция, без сети; None — не фото места
-async def vision_check(raw: RawImage, photo: Photo) -> Photo    # опционально; при ошибке/таймауте возвращает photo без изменений
+def score(raw: RawImage, ctx: CampusContext, vision: VisionResult | None = None) -> Photo | None
+async def classify(contents: list[bytes]) -> list[VisionResult | None]  # локальный CLIP по миниатюрам; None — нет вердикта
+# VisionResult(place_prob: float, top: str): доля вероятности на «местах» (корпус, территория, читальный зал…).
+# place_prob ≥ 0.5 → vision +12; < 0.35 → vision −30 и потолок unconfirmed (как content). Vision сам по себе не место.
 
 class Deduplicator:                  # состояние на один профиль
     def add(self, photo: Photo, raw: RawImage) -> list[Photo]   # фото, которые нужно (пере)отправить событием photo
@@ -404,7 +407,8 @@ class Deduplicator:                  # состояние на один проф
 | `FLICKR_API_KEY` | sources-agent | `flickr` → `skipped` |
 | `MAPILLARY_TOKEN` | sources-agent, map-agent (бэкенд `/campus`) | `mapillary` → `skipped`, панорамы не проверяются |
 | `KAKAO_API_KEY` | map-agent | Kakao не проверяется |
-| `LLM_API_KEY` | api-agent (резюме), verify-agent (vision), mascot-agent (чат) | резюме из Wikipedia без LLM; без vision; чат отвечает поиском по текстам или `dont_know` |
+| `LLM_API_KEY` | api-agent (резюме), mascot-agent (чат) | резюме из Wikipedia без LLM; чат отвечает поиском по текстам или `dont_know` |
+| `VISION_ENABLED` | verify-agent (локальный CLIP, `pipeline/vision.py`) | по умолчанию `1`; `0` — фото оцениваются только по метаданным |
 | `SOURCE_TIMEOUT_S` | `/resolve` | 5 с |
 
 Фронтенд: `NEXT_PUBLIC_API_URL` (по умолчанию `http://localhost:8000`), `NEXT_PUBLIC_MAPILLARY_TOKEN`, `NEXT_PUBLIC_KAKAO_JS_KEY` — ключи для клиентских SDK карты.

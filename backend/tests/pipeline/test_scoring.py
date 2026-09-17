@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from app.services.pipeline import score
+from app.services.pipeline import VisionResult, score
 from tests.pipeline.conftest_data import CTX, raw, weights
 
 INSIDE = dict(lat=37.590, lng=127.034)
@@ -8,8 +8,28 @@ INSIDE = dict(lat=37.590, lng=127.034)
 
 def test_inside_polygon_with_category_and_name_is_verified():
     p = score(raw(**INSIDE, matched_category="Korea University", title="File:Korea University main hall.jpg"), CTX)
-    assert (p.tier, p.confidence, p.category) == ("verified", 100, "campus")
+    assert (p.tier, p.category) == ("verified", "campus") and p.confidence >= 90
     assert weights(p)["geo"] > 0
+
+
+def test_name_counts_less_when_the_file_is_already_in_the_category():
+    # Files in "Category:X" almost always say X in the description: one signal, not two.
+    in_category = score(raw(matched_category="Korea University", title="File:Korea University gate.jpg"), CTX)
+    named_only = score(raw(title="File:Korea University gate.jpg", found_by="geosearch"), CTX)
+    name_weight = lambda p: next(e.weight for e in p.evidence if e.type == "text")  # noqa: E731
+    assert 0 < name_weight(in_category) < name_weight(named_only)
+
+
+def test_commons_quality_category_is_a_bonus():
+    plain = score(raw(matched_category="Korea University"), CTX)
+    quality = score(raw(matched_category="Korea University", source_categories=["Quality images of Seoul"]), CTX)
+    assert quality.confidence > plain.confidence
+    assert any("Quality images" in e.label for e in quality.evidence)
+
+
+def test_year_in_the_title_marks_an_old_picture():
+    p = score(raw(matched_category="Korea University", title="File:Agar Cambridge LLD 1815.jpg", published_at=None), CTX)
+    assert weights(p)["date"] < 0 and "1815" in next(e.label for e in p.evidence if e.type == "date")
 
 
 def test_category_without_geotag_but_named_is_likely():
@@ -34,10 +54,12 @@ def test_just_outside_without_link_goes_to_city():
 
 def test_at_the_edge_with_category_stays_campus():
     # OSM boundaries miss heritage buildings at the edge (Korea_University_0a.jpg, 180 m outside).
-    p = score(raw(lat=37.5955, lng=127.032, matched_category="Registered heritages in Korea University",
-                  matched_subcategory=True, title="File:Korea University 0a.jpg"), CTX)
+    r = raw(lat=37.5955, lng=127.032, matched_category="Registered heritages in Korea University",
+            matched_subcategory=True, title="File:Korea University 0a.jpg")
+    p = score(r, CTX)
     assert p.category == "campus"
-    assert p.tier == "verified"
+    assert p.tier == "likely"  # metadata alone: edge geotag + subcategory
+    assert score(r, CTX, VisionResult(place_prob=0.9, top="building")).tier == "verified"
 
 
 def test_without_polygon_degrades_honestly_instead_of_city():
@@ -154,3 +176,14 @@ def test_labels_follow_language_and_retrieved_at_is_today():
 
 def test_photo_keeps_source_id():
     assert score(raw(id="flickr-555"), CTX).id == "flickr-555"
+
+
+def test_talks_and_signings_are_people_not_places():
+    for title in [
+        "File:Deakin delivering the 2017 Allen & Overy Lecture on the evolution of law.jpg",
+        "File:Crane at a seminar on consciousness.png",
+        "File:The Prime Minister signing the visitors book at Korea University.jpg",
+    ]:
+        p = score(raw(matched_category="Korea University", title=title), CTX)
+        assert weights(p).get("content", 0) < 0, title
+    assert "content" not in weights(score(raw(title="File:Korea University seminar room 301.jpg"), CTX))

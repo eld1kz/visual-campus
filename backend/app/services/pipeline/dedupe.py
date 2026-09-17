@@ -2,6 +2,7 @@
 
 Copies are matched by file SHA-1, by perceptual hash of the thumbnail (pHash) and, within one source,
 by title stem ("X (cropped).jpg" = "X.jpg"). The most confident copy stays; the rest go to its `duplicates`.
+The downloaded thumbnails are returned by `prepare` so the vision check reuses them.
 """
 
 import asyncio
@@ -19,12 +20,24 @@ from app.models import DuplicatePhoto, Photo, RawImage
 from app.services.text import normalize
 
 PHASH_MAX_DISTANCE = 6  # of 64 bits
-HASH_CONCURRENCY = 4  # upload.wikimedia.org answers 429 to bursts
+# Wikimedia renders missing thumbnail sizes on request and answers 429 to bursts of them:
+# measured on 150 fresh thumbnails, 24 in parallel got 39 × 429, while cached ones never did.
+HASH_CONCURRENCY = 8
 HASH_REQUEST_TIMEOUT_S = 3.0
-HASH_BUDGET_S = 6.0  # total for all thumbnail downloads of one profile
+HASH_BUDGET_S = 15.0  # total for all thumbnail downloads of one profile (the profile deadline is 30 s)
+THROTTLE_PAUSE_S = 1.0  # after a 429 every download waits this long; the image is retried once
+ANALYSIS_WIDTH = 250  # Commons gallery size, usually pre-rendered: ~0.6 s and ~18 KB (330 px: ~3x slower cold)
 
 _COPY_SUFFIX = re.compile(r"\s*\((cropped|crop|edited|retouched|\d+)\)|\s*-\s*panoramio", re.IGNORECASE)
 _CAMERA_NAME = re.compile(r"^(img|dsc|dscn|dcim|pict|photo|image|p)\s*\d*$")
+_WIKIMEDIA_THUMB = re.compile(r"^(https://(?:upload|thumb)\.wikimedia\.org/.+/thumb/.+/)\d+px-")
+
+
+def analysis_url(raw: RawImage) -> str | None:
+    """The thumbnail to hash and classify; for Wikimedia a small standard size of the same thumbnail."""
+    if not raw.thumb_url:
+        return None
+    return _WIKIMEDIA_THUMB.sub(rf"\g<1>{ANALYSIS_WIDTH}px-", raw.thumb_url, count=1)
 
 
 def title_stem(title: str) -> str:
@@ -57,43 +70,52 @@ class _Group:
 
 
 class Deduplicator:
-    def __init__(self, hash_budget_s: float = HASH_BUDGET_S) -> None:
+    def __init__(self, hash_budget_s: float = HASH_BUDGET_S, throttle_pause_s: float = THROTTLE_PAUSE_S) -> None:
         self._groups: list[_Group] = []
         self._by_id: dict[str, _Group] = {}
         self._hashes: dict[str, imagehash.ImageHash] = {}
         self._semaphore = asyncio.Semaphore(HASH_CONCURRENCY)
         self._budget_s = hash_budget_s
-        self._throttled = False
+        self._throttle_pause_s = throttle_pause_s
+        self._paused_until = 0.0
 
     # ---------- perceptual hashes (network) ----------
 
-    async def prepare(self, raws: list[RawImage], client: httpx.AsyncClient) -> None:
-        """Download thumbnails and compute pHash within the shared budget. Failures just leave no hash."""
+    async def prepare(self, raws: list[RawImage], client: httpx.AsyncClient) -> dict[str, bytes]:
+        """Download thumbnails and compute pHash within the shared budget. Failures just leave no hash.
+
+        Returns the thumbnails that were downloaded and decoded, by photo id.
+        """
         todo = [r for r in raws if r.thumb_url and r.id not in self._hashes]
-        if not todo or self._budget_s <= 0 or self._throttled:
-            return
+        contents: dict[str, bytes] = {}
+        if not todo or self._budget_s <= 0:
+            return contents
         started = time.monotonic()
-        tasks = [asyncio.create_task(self._hash_one(r, client)) for r in todo]
+        tasks = [asyncio.create_task(self._hash_one(r, client, contents)) for r in todo]
         try:
             await asyncio.wait(tasks, timeout=self._budget_s)
         finally:
             for task in tasks:
                 task.cancel()
             self._budget_s -= time.monotonic() - started
+        return contents
 
-    async def _hash_one(self, raw: RawImage, client: httpx.AsyncClient) -> None:
+    async def _hash_one(self, raw: RawImage, client: httpx.AsyncClient, contents: dict[str, bytes]) -> None:
         async with self._semaphore:
-            if self._throttled:
-                return
             try:
-                response = await client.get(
-                    raw.thumb_url, headers={"User-Agent": settings.user_agent}, timeout=HASH_REQUEST_TIMEOUT_S
-                )
-                if response.status_code == 429:
-                    self._throttled = True
+                for attempt in range(2):
+                    await asyncio.sleep(max(0.0, self._paused_until - time.monotonic()))
+                    response = await client.get(
+                        analysis_url(raw), headers={"User-Agent": settings.user_agent}, timeout=HASH_REQUEST_TIMEOUT_S
+                    )
+                    if response.status_code != 429:
+                        break
+                    self._paused_until = time.monotonic() + self._throttle_pause_s
+                else:
                     return
                 response.raise_for_status()
                 self._hashes[raw.id] = await asyncio.to_thread(_phash, response.content)
+                contents[raw.id] = response.content
             except Exception:  # noqa: BLE001 — a missing hash must never break the profile
                 return
 

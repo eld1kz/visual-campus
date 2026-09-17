@@ -34,6 +34,7 @@ PEOPLE_OR_EVENT = re.compile(
     r"meeting(?!\s*(hall|room|house|point))|official visit|\bvisit (by|of|to)\b|\bpress\b|\bawards?\b|celebration|"
     r"graduation|\bteam\b|research assistants?|\bRAs\b|researchers?\b|professor|chemist|physicist|scientist|"
     r"biologist|\bpresident\b|\brector\b|\bdean\b|minister|ambassador|supervisor|\bgirl\b|\bprime minister|"
+    r"\bdelivering\b|\bspeech\b|\bspeaking\b|\bseminar\b(?!\s*(room|hall))|\bsigning\b|visitors?'? book|handshake|"
     r"초상|기자회견|총장|교수|졸업식|시상식|"
     r"портрет|делегац|визит|церемони|конференц|встреч|выпускн|награжд|профессор|ректор",
     _I,
@@ -93,7 +94,9 @@ def other_institution(raw: RawImage, names: list[str]) -> str | None:
     return match.group(0)
 
 
-def classify(raw: RawImage, on_campus: bool | None, linked: bool, building: Building | None) -> tuple[str, list[str]]:
+def classify(
+    raw: RawImage, on_campus: bool | None, linked: bool, building: Building | None, seen: str | None = None
+) -> tuple[str, list[str]]:
     """One category and contract tags, from the most reliable signal down (docs/CONTRACT.md §6)."""
     tags: list[str] = []
     category = None
@@ -119,7 +122,9 @@ def classify(raw: RawImage, on_campus: bool | None, linked: bool, building: Buil
         elif CLASSROOM.search(text):
             category = "classrooms"
 
-    # 3. Vision model — not available without LLM_API_KEY (see vision.py).
+    # 3. What the CLIP model sees (library reading room, lecture hall, dorm), when it is sure it is a place.
+    if category is None and seen:
+        category = seen
     # 4. Fallback: city only on positive signs that the photo is off campus and unrelated to the university.
     if category is None:
         category = "city" if on_campus is False and not linked else "campus"

@@ -11,7 +11,8 @@ from shapely.ops import nearest_points
 
 from app.models import Building, Evidence, Photo, RawImage
 from app.services.pipeline import categories as cat
-from app.services.pipeline.labels import fmt_distance, labels
+from app.services.pipeline.labels import fmt_distance, labels, vision_name
+from app.services.pipeline.vision import VisionResult
 from app.services.text import normalize
 
 BASE_CONFIDENCE = 40
@@ -36,6 +37,10 @@ W_CATEGORY = 22
 W_SUBCATEGORY = 16
 W_BUILDING = 6
 W_NAME_IN_TEXT = 14
+W_NAME_IN_CATEGORY_FILE = 4  # files in the university category nearly always name it: mostly the same signal
+W_QUALITY = 8  # Commons Quality / Featured / Valued images
+W_VISION_PLACE = 12
+W_VISION_NOT_A_PLACE = -30
 W_OFFICIAL_SITE = 16
 W_NO_LICENSE = -12
 W_OLD = -8
@@ -43,6 +48,11 @@ W_PEOPLE_OR_EVENT = -15
 W_OTHER_INSTITUTION = -20
 
 EDGE_M = 250
+VISION_PLACE_FROM = 0.5  # CLIP place probability; see pipeline/vision.py for how these were chosen
+VISION_NOT_A_PLACE_BELOW = 0.35
+QUALITY_CATEGORY = re.compile(r"^(quality images|featured pictures|valued images)\b", re.IGNORECASE)
+YEAR_IN_TITLE = re.compile(r"(?<!\d)(1[5-9]\d\d)(?!\d)")
+VISION_CATEGORY = {"library": "libraries", "classroom": "classrooms"}  # interiors CLIP tells apart reliably
 POSITIVE_TYPES = {"geo", "category", "text"}
 BUILDING_TYPE_NAMES = {
     "ru": {"academic": "учебное", "dorm": "общежитие", "library": "библиотека", "sport": "спорт",
@@ -157,15 +167,19 @@ def finalize(evidence: list[Evidence]) -> tuple[int, str]:
     """Confidence and tier from evidence, with the honest-uncertainty caps (docs/CONTRACT.md §3)."""
     confidence = max(0, min(100, BASE_CONFIDENCE + sum(e.weight for e in evidence)))
     has_place_evidence = any(e.type in POSITIVE_TYPES and e.weight > 0 for e in evidence)
-    not_the_place = any(e.type == "content" for e in evidence)
+    not_the_place = any(e.type == "content" or (e.type == "vision" and e.weight < 0) for e in evidence)
     if not has_place_evidence or not_the_place:
         confidence = min(confidence, UNCONFIRMED_MAX)
     tier = "verified" if confidence >= VERIFIED_FROM else "likely" if confidence >= LIKELY_FROM else "unconfirmed"
     return confidence, tier
 
 
-def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
-    """None when the image is not a photo of a place (logos, maps, flyers, documents, artworks)."""
+def score(raw: RawImage, ctx: CampusContext, vision: VisionResult | None = None) -> Photo | None:
+    """None when the image is not a photo of a place (logos, maps, flyers, documents, artworks).
+
+    `vision` is the CLIP verdict on the thumbnail, when it is known: a clear non-place caps the photo at
+    `unconfirmed`, a clear place adds weight. Vision is not place evidence by itself (see finalize).
+    """
     if cat.is_not_a_place(raw):
         return None
 
@@ -185,7 +199,11 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
 
     name = mentioned_name(cat.own_text(raw), ctx.names)
     if name:
-        evidence.append(_ev("text", t["name"].format(n=name), W_NAME_IN_TEXT))
+        weight = W_NAME_IN_CATEGORY_FILE if raw.matched_category else W_NAME_IN_TEXT
+        evidence.append(_ev("text", t["name"].format(n=name), weight))
+    quality = next((c for c in [raw.matched_category or "", *raw.source_categories] if QUALITY_CATEGORY.search(c)), None)
+    if quality:
+        evidence.append(_ev("category", t["quality"].format(c=quality), W_QUALITY))
     official = _official_domain(raw, ctx)
     if official:
         evidence.append(_ev("text", t["official"].format(s=official), W_OFFICIAL_SITE))
@@ -200,14 +218,26 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
         evidence.append(_ev("missing", t["no_license"], W_NO_LICENSE))
 
     year = int(raw.published_at[:4]) if raw.published_at and raw.published_at[:4].isdigit() else None
+    # Prints and scans are uploaded recently: "Agar Cambridge LLD 1815.jpg" dates itself in the title.
+    title_years = [int(y) for y in YEAR_IN_TITLE.findall(raw.title) if int(y) <= ctx.today.year]
+    if title_years:
+        year = min([year, *title_years]) if year else min(title_years)
     if year and year < ctx.today.year - OLD_PHOTO_YEARS:
         evidence.append(_ev("date", t["old"].format(y=year), W_OLD))
+
+    if vision is not None and vision.place_prob >= VISION_PLACE_FROM:
+        what = vision_name(vision.top, ctx.lang)
+        evidence.append(_ev("vision", t["vision_place"].format(w=what), W_VISION_PLACE))
+    elif vision is not None and vision.place_prob < VISION_NOT_A_PLACE_BELOW:
+        what = vision_name(vision.top, ctx.lang)
+        evidence.append(_ev("vision", t["vision_not_place"].format(w=what), W_VISION_NOT_A_PLACE))
 
     confidence, tier = finalize(evidence)
     linked = bool(raw.matched_category or name or official)
     # Without a polygon, a geotag beyond the point radius is "unknown"; unlinked, it is not the campus.
     off_campus = on_campus is False or (on_campus is None and raw.lat is not None and not linked)
-    category, tags = cat.classify(raw, False if off_campus else on_campus, linked, building)
+    seen = VISION_CATEGORY.get(vision.top) if vision is not None and vision.place_prob >= VISION_PLACE_FROM else None
+    category, tags = cat.classify(raw, False if off_campus else on_campus, linked, building, seen)
     return Photo(
         id=raw.id,
         thumb_url=raw.thumb_url,

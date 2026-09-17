@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 
 from app.services.pipeline import Deduplicator, score
-from app.services.pipeline.dedupe import _phash
+from app.services.pipeline.dedupe import _phash, analysis_url
 from tests.pipeline.conftest_data import CTX, raw
 
 
@@ -81,7 +81,7 @@ def test_prepare_downloads_thumbs_and_survives_errors():
     async def run():
         d = Deduplicator()
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-            await d.prepare([
+            d.contents = await d.prepare([
                 raw(id="commons-1", thumb_url="https://t/a.png"),
                 raw(id="flickr-1", source="flickr", thumb_url="https://t/b.png"),
                 raw(id="flickr-2", source="flickr", thumb_url="https://t/broken.png"),
@@ -92,14 +92,24 @@ def test_prepare_downloads_thumbs_and_survives_errors():
     d = asyncio.run(run())
     assert set(d._hashes) == {"commons-1", "flickr-1"}
     assert d._hashes["commons-1"] == _phash(image)
+    assert d.contents == {"commons-1": image, "flickr-1": image}  # reused by the vision check
 
 
-def test_prepare_respects_budget_and_stops_on_429():
-    calls = 0
+def test_analysis_url_asks_wikimedia_for_a_small_thumbnail():
+    big = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/A.jpg/960px-A.jpg?utm_source=x"
+    assert analysis_url(raw(thumb_url=big)) == "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/A.jpg/250px-A.jpg?utm_source=x"
+    thumb_host = "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/A.jpg/960px-A.jpg"
+    assert analysis_url(raw(thumb_url=thumb_host)).endswith("/250px-A.jpg")
+    assert analysis_url(raw(thumb_url="https://live.staticflickr.com/1/2_z.jpg")) == "https://live.staticflickr.com/1/2_z.jpg"
+
+
+def test_prepare_respects_budget_and_retries_429_once():
+    calls: dict[str, int] = {}
 
     def throttled(request: httpx.Request) -> httpx.Response:
-        nonlocal calls
-        calls += 1
+        calls[request.url.path] = calls.get(request.url.path, 0) + 1
+        if request.url.path == "/ok-after-retry.png" and calls[request.url.path] > 1:
+            return httpx.Response(200, content=_png(3))
         return httpx.Response(429)
 
     async def slow(request: httpx.Request) -> httpx.Response:
@@ -107,10 +117,13 @@ def test_prepare_respects_budget_and_stops_on_429():
         return httpx.Response(200, content=_png(2))
 
     async def run():
-        d = Deduplicator()
+        d = Deduplicator(throttle_pause_s=0.01)
         async with httpx.AsyncClient(transport=httpx.MockTransport(throttled)) as client:
-            await d.prepare([raw(id=f"commons-{i}", thumb_url=f"https://t/{i}.png") for i in range(20)], client)
-        assert calls <= 4  # concurrency limit; nothing more after the 429
+            got = await d.prepare(
+                [raw(id=f"commons-{i}", thumb_url=f"https://t/{i}.png") for i in range(20)]
+                + [raw(id="commons-ok", thumb_url="https://t/ok-after-retry.png")], client)
+        assert max(calls.values()) == 2  # one pause-and-retry per image, then it is skipped
+        assert list(got) == ["commons-ok"]
 
         d2 = Deduplicator(hash_budget_s=0.2)
         loop = asyncio.get_running_loop()

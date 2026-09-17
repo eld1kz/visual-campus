@@ -85,3 +85,8 @@ def test_parse_date_handles_commons_formats():
     assert commons.parse_date("2012-05-20 14:03:22") == "2012-05-20"
     assert commons.parse_date('1970s<div style="display: none;">date QS:P,+1970</div>') == "1970"
     assert commons.parse_date(None) is None
+
+
+def test_costume_subcategories_are_not_places():
+    assert commons._NOT_A_PLACE.search("Academic dress of the University of Cambridge")
+    assert not commons._NOT_A_PLACE.search("Buildings of the University of Cambridge")

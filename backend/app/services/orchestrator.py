@@ -17,7 +17,7 @@ from app.models import (
     RawImage, SourceResult, Summary,
 )
 from app.services import cache
-from app.services.pipeline import CampusContext, Deduplicator, score
+from app.services.pipeline import CampusContext, Deduplicator, VisionResult, classify, score
 from app.services.sources import commons, flickr, mapillary, official_site, osm, run_source
 from app.services.sources.base import SourceQuery
 from app.services.sources.geo import distance_m
@@ -179,6 +179,7 @@ class ProfileBuild:
         self.final: list[Photo] = []
         self.counts: dict[str, int] = {}
         self.hasher = Deduplicator()  # only its pHash cache is used; groups are rebuilt in _refresh
+        self.vision: dict[str, VisionResult] = {}  # CLIP verdicts by photo id
         self.summary: Summary | None = None
         self.deadline_hit = False
         self._children: set[asyncio.Task] = set()
@@ -324,11 +325,29 @@ class ProfileBuild:
             result = SourceResult(name=name, status="timeout", took_ms=_ms(started))
         new = self._ingest(result.images)
         self._finish(result)
-        if new:  # photos are already sent; perceptual duplicates are found in the background
-            self._hash_tasks.add(asyncio.create_task(self._hash(new, client)))
+        if new:  # photos are already sent; duplicates and the visual check follow in the background
+            self._hash_tasks.add(asyncio.create_task(self._analyze(new, client)))
 
-    async def _hash(self, raws: list[RawImage], client: httpx.AsyncClient) -> None:
-        await self.hasher.prepare(raws, client)
+    async def _analyze(self, raws: list[RawImage], client: httpx.AsyncClient) -> None:
+        """Download thumbnails once: pHash for duplicates, CLIP for what the photo shows; re-send what changed.
+
+        Most confident first: if the budget runs out, the photos people see by default are the checked ones.
+        """
+        raws = sorted(raws, key=lambda r: -(self.scored[r.id][0].confidence if r.id in self.scored else 0))
+        started = time.perf_counter()
+        contents = await self.hasher.prepare(raws, client)
+        downloaded_ms = _ms(started)
+        ids = list(contents)
+        verdicts = await classify([contents[i] for i in ids])
+        logger.info("%s: %d photos, %d thumbnails in %d ms, %d judged by vision in %d ms", self.qid, len(raws),
+                    len(ids), downloaded_ms, sum(v is not None for v in verdicts), _ms(started) - downloaded_ms)
+        for photo_id, verdict in zip(ids, verdicts):
+            if verdict is None:
+                continue
+            self.vision[photo_id] = verdict
+            raw = self.raws[photo_id]
+            if (photo := self._score(raw)) is not None:
+                self.scored[photo_id] = (photo, raw)
         self._refresh()
         for name in PHOTO_COLLECTORS:
             result = self.results.get(name)
@@ -368,7 +387,7 @@ class ProfileBuild:
         if polygon is None and not shape.buildings:
             return
         self.ctx.polygon, self.ctx.buildings = polygon, shape.buildings
-        self.scored = {rid: (p, raw) for rid, raw in self.raws.items() if (p := score(raw, self.ctx))}
+        self.scored = {rid: (p, raw) for rid, raw in self.raws.items() if (p := self._score(raw))}
         self._refresh()
 
     def _ingest(self, raws: list[RawImage]) -> list[RawImage]:
@@ -377,13 +396,16 @@ class ProfileBuild:
             if raw.id in self.raws:
                 continue
             self.raws[raw.id] = raw
-            photo = score(raw, self.ctx)
+            photo = self._score(raw)
             if photo is not None:
                 self.scored[raw.id] = (photo, raw)
                 new.append(raw)
         if new:
             self._refresh()
         return new
+
+    def _score(self, raw: RawImage) -> Photo | None:
+        return score(raw, self.ctx, self.vision.get(raw.id))
 
     def _refresh(self) -> None:
         """Regroup all scored photos with every pHash known so far and send the photos that changed.

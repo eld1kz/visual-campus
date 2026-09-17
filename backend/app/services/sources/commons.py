@@ -29,7 +29,7 @@ PARALLEL_REQUESTS = 6
 # Subcategories about people, symbols or media rather than places.
 _NOT_A_PLACE = re.compile(
     r"alumni|people|faculty|staff|president|professor|rector|persons|portrait|logo|seal|emblem|coat of arms|"
-    r"\bmaps?\b|document|video|audio|publication|book|signature|award|medal",
+    r"\bmaps?\b|document|video|audio|publication|book|signature|award|medal|academic dress|costume",
     re.IGNORECASE,
 )
 _TAGS = re.compile(r"<[^>]+>")
