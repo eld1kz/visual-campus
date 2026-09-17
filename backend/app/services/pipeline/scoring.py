@@ -40,6 +40,7 @@ W_OFFICIAL_SITE = 16
 W_NO_LICENSE = -12
 W_OLD = -8
 W_PEOPLE_OR_EVENT = -15
+W_SPECIMEN = -15
 W_OTHER_INSTITUTION = -20
 
 EDGE_M = 250
@@ -153,6 +154,19 @@ def _official_domain(raw: RawImage, ctx: CampusContext) -> str | None:
     return raw.source_domain if raw.is_official_site else None
 
 
+def content_evidence(raw: RawImage, ctx: CampusContext) -> Evidence | None:
+    """At most one sign that the image shows something other than the campus: another institution, people, a sample."""
+    t = labels(ctx.lang)
+    institution = cat.other_institution(raw, ctx.names)
+    if institution:
+        return _ev("content", t["other_institution"].format(m=institution), W_OTHER_INSTITUTION)
+    if cat.is_people_or_event(raw):
+        return _ev("content", t["people"], W_PEOPLE_OR_EVENT)
+    if cat.is_specimen(raw):
+        return _ev("content", t["specimen"], W_SPECIMEN)
+    return None
+
+
 def finalize(evidence: list[Evidence]) -> tuple[int, str]:
     """Confidence and tier from evidence, with the honest-uncertainty caps (docs/CONTRACT.md §3)."""
     confidence = max(0, min(100, BASE_CONFIDENCE + sum(e.weight for e in evidence)))
@@ -190,11 +204,9 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
     if official:
         evidence.append(_ev("text", t["official"].format(s=official), W_OFFICIAL_SITE))
 
-    institution = cat.other_institution(raw, ctx.names)
-    if institution:
-        evidence.append(_ev("content", t["other_institution"].format(m=institution), W_OTHER_INSTITUTION))
-    elif cat.is_people_or_event(raw):
-        evidence.append(_ev("content", t["people"], W_PEOPLE_OR_EVENT))
+    content = content_evidence(raw, ctx)
+    if content:
+        evidence.append(content)
 
     if not raw.license:
         evidence.append(_ev("missing", t["no_license"], W_NO_LICENSE))
