@@ -1,7 +1,7 @@
 "use client";
 
 import { usePreferences } from "@/components/layout/PreferencesProvider";
-import { BUILDING_TYPES, BUILDING_TYPE_COLOR } from "@/lib/map/geometry";
+import { BUILDING_TYPE_COLOR } from "@/lib/map/geometry";
 import type { BuildingType } from "@/lib/types";
 import type { MapLayers } from "./types";
 
@@ -10,16 +10,17 @@ export const toggleChip = (on: boolean) =>
 
 type Props = {
   layers: MapLayers;
-  panoAvailable: boolean;
+  /** Only types that occur among this campus's buildings get a chip. */
+  presentTypes: BuildingType[];
   onToggleType: (type: BuildingType) => void;
   onToggle: (layer: Exclude<keyof MapLayers, "types">) => void;
 };
 
-export function LayerChips({ layers, panoAvailable, onToggleType, onToggle }: Props) {
+export function LayerChips({ layers, presentTypes, onToggleType, onToggle }: Props) {
   const { t } = usePreferences();
   return (
     <div className="mb-3 flex flex-wrap gap-[7px]">
-      {BUILDING_TYPES.map((type) => {
+      {presentTypes.map((type) => {
         const on = layers.types[type];
         return (
           <button
@@ -32,18 +33,12 @@ export function LayerChips({ layers, panoAvailable, onToggleType, onToggle }: Pr
           </button>
         );
       })}
-      <span className="mx-1 my-0.5 w-px bg-line" />
+      {presentTypes.length > 0 && <span className="mx-1 my-0.5 w-px bg-line" />}
       <button onClick={() => onToggle("pins")} className={toggleChip(layers.pins)}>
         {t.map.showPins}
       </button>
       <button onClick={() => onToggle("unconfirmedPins")} className={toggleChip(layers.unconfirmedPins)}>
         {t.tierToggle}
-      </button>
-      <button onClick={() => onToggle("panoramas")} className={toggleChip(layers.panoramas && panoAvailable)}>
-        {t.map.layerPano}
-      </button>
-      <button onClick={() => onToggle("transit")} className={toggleChip(layers.transit)}>
-        {t.map.layerTransit}
       </button>
     </div>
   );

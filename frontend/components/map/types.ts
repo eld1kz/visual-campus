@@ -2,35 +2,24 @@ import type { BuildingType, CampusMap } from "@/lib/types";
 
 export type MapMode = "2d" | "3d" | "walk";
 
-export type MapCamera = { zoom: number; bearing: number; tilt: number };
-
 export type MapLayers = {
   types: Record<BuildingType, boolean>;
   pins: boolean;
   unconfirmedPins: boolean;
-  panoramas: boolean;
-  transit: boolean;
 };
 
-/** Demo toggles from the design's «ТЕСТОВЫЕ СОСТОЯНИЯ» (prototype-only). */
-export type MapDemoFlags = { noPolygon: boolean; noHeights: boolean; noPano: boolean; no3d: boolean };
-
 /**
- * Contract shared by the 2D and 3D renderers. The placeholders implement it with CSS;
- * the MapLibre GL JS version maps it onto sources/layers:
- *  - buildings → fill (2D) / fill-extrusion by height_m (3D), filtered by layers.types
- *  - campus polygon → fill + line; photo pins → clustered symbol layer
- *  - camera → map.easeTo({ zoom, bearing, pitch: tilt })
+ * Props of the MapLibre campus map. One map instance serves both modes:
+ * 2D — flat, north-up, typed building fills; 3D — pitched camera, fill-extrusion by height.
  */
 export type MapViewProps = {
   data: CampusMap;
-  camera: MapCamera;
+  mode: "2d" | "3d";
   layers: MapLayers;
-  showPolygon: boolean;
-  flatHeights: boolean;
   selectedBuildingId: string | null;
+  /** Bumped by «Centre on campus»: fit the campus again. */
+  recenterKey: number;
+  flyover: boolean;
   onSelectBuilding: (id: string) => void;
   onSelectPin: (photoId: string) => void;
-  onZoomToCluster: () => void;
-  onCameraChange: (camera: Partial<MapCamera>) => void;
 };

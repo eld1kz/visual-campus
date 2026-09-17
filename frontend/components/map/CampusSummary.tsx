@@ -24,7 +24,7 @@ export function CampusSummary({ data, buildingQuery, selectedBuildingId, onSelec
 
   const groups = BUILDING_TYPES.map((type) => {
     const all = inside.filter((b) => b.type === type);
-    return { type, count: all.length, items: all.filter((b) => !query || b.name.toLowerCase().includes(query)) };
+    return { type, count: all.length, items: all.filter((b) => b.name && (!query || b.name.toLowerCase().includes(query))) };
   }).filter((g) => g.count > 0 && (g.items.length > 0 || !query));
 
   return (
@@ -37,7 +37,7 @@ export function CampusSummary({ data, buildingQuery, selectedBuildingId, onSelec
           </div>
         ))}
       </div>
-      <div className="flex flex-col gap-4">
+      <div className="flex max-h-[420px] flex-col gap-4 overflow-y-auto pr-1">
         {groups.map((g) => (
           <div key={g.type}>
             <div className="mb-1.5 flex items-center gap-2">

@@ -1,12 +1,14 @@
 import type { Lang } from "@/lib/i18n";
 import { createSseParser } from "@/lib/sse";
-import type { ProfileEvent, ProfileResponse, ResolveResponse, SourceStatus } from "@/lib/types";
+import type { CampusMap, ProfileEvent, ProfileResponse, ResolveResponse, SourceStatus } from "@/lib/types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
 const RESOLVE_TIMEOUT_MS = 20_000;
 /** Building a profile queries four sources; the backend budget is ≤30 s. */
 const PROFILE_TIMEOUT_MS = 45_000;
+/** /campus may query Wikidata and Overpass when the profile is not cached. */
+const CAMPUS_TIMEOUT_MS = 30_000;
 
 export class ApiError extends Error {
   constructor(
@@ -22,6 +24,11 @@ export class ApiError extends Error {
 
 export function resolveUniversity(query: string, signal?: AbortSignal): Promise<ResolveResponse> {
   return getJson(`/resolve?q=${encodeURIComponent(query)}`, RESOLVE_TIMEOUT_MS, signal);
+}
+
+/** GET /campus/{id}: campus outline, OSM buildings and photo pins (docs/CONTRACT.md §4). */
+export function getCampus(wikidataId: string, lang: Lang, signal?: AbortSignal): Promise<CampusMap> {
+  return getJson(`/campus/${encodeURIComponent(wikidataId)}?lang=${lang}`, CAMPUS_TIMEOUT_MS, signal);
 }
 
 const PROFILE_EVENTS = new Set<string>(["source_status", "photo", "summary", "done"]);

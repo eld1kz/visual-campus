@@ -8,11 +8,9 @@ import { PhotoDetail } from "@/components/photos/PhotoDetail";
 import { PhotosSection } from "@/components/photos/PhotosSection";
 import { DemoDataPlate } from "@/components/ui/DemoDataPlate";
 import { WarningBanner } from "@/components/ui/WarningBanner";
-import { MAP } from "@/lib/mock/map";
 import { CATEGORIES, type PhotoTab } from "@/lib/photos";
 import type { Photo, PhotoCategory, Profile, ProfileStats } from "@/lib/types";
 import { AboutSection } from "./AboutSection";
-import { LiveMapPlaceholder } from "./LiveMapPlaceholder";
 import { PartialBanner } from "./PartialBanner";
 import { ProfileHeader } from "./ProfileHeader";
 import { SectionTabs, type ProfileSection } from "./SectionTabs";
@@ -95,16 +93,15 @@ export function ProfileView({ profile, stats, live, partial = false, params }: P
       )}
 
       {section === "map" &&
-        (live ? (
-          // The campus map is not connected to the API yet: show real facts instead of the demo campus.
-          <LiveMapPlaceholder university={profile.university} />
-        ) : (
+        (profile.university.wikidata_id ? (
           <CampusMapSection
-            data={MAP}
+            wikidataId={profile.university.wikidata_id}
             photos={profile.photos}
             initialBuildingId={params.get("building")}
             onOpenPhoto={openById}
           />
+        ) : (
+          <div className="rounded-[20px] bg-surface-2 p-[38px] text-[13px] text-ink-3">{t.live.noMapFacts}</div>
         ))}
 
       {open && <PhotoDetail photo={open.list[open.index]} onPrev={prev} onNext={next} onClose={close} />}

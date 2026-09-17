@@ -1,6 +1,5 @@
 // DEMO DATA — ported from design/Visual Campus.dc.html (UNIS, summary, sources).
 import type { Profile, ProfileUniversity } from "@/lib/types";
-import { MAP } from "./map";
 import { PHOTOS } from "./photos";
 
 export type DemoUniversity = ProfileUniversity & { distance_to_center_km: number; climate: string; climate_en: string };
@@ -9,7 +8,7 @@ export const DEMO_UNIVERSITIES: DemoUniversity[] = [
   {
     id: "ku", name: "Korea University", flag: "🇰🇷", city: "Seoul", country: "South Korea",
     city_ru: "Сеул", country_ru: "Республика Корея", aliases: ["고려대학교", "KU", "Korea Univ."],
-    website: "https://www.korea.ac.kr", lat: 37.5895, lng: 127.0323, campus_polygon: MAP.campus.polygon,
+    website: "https://www.korea.ac.kr", lat: 37.5895, lng: 127.0323, campus_polygon: null, wikidata_id: "Q39997",
     distance_to_center_km: 4.8, climate: "Dfa / влажный континентальный", climate_en: "Dfa / humid continental",
   },
   {

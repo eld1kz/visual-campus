@@ -286,7 +286,7 @@ async def find_campus(query: SourceQuery, client: httpx.AsyncClient) -> tuple[So
         shape_ = None
         if campus or state["buildings"]:
             shape_ = CampusShape(
-                polygon=outer_ring(campus.geometry) if campus else None,
+                polygon=outer_ring(campus.geometry, query.lat, query.lng) if campus else None,
                 area_km2=campus.area_km2 if campus else None,
                 osm_url=campus.osm_url if campus else None,
                 buildings=state["buildings"] or [],
@@ -328,8 +328,13 @@ async def find_campus(query: SourceQuery, client: httpx.AsyncClient) -> tuple[So
     return result("ok", None if state["campus"] else "no campus polygon in OpenStreetMap")
 
 
-def outer_ring(geometry: BaseGeometry) -> list[list[float]]:
-    """Outer ring of the largest part as [[lng, lat], ...]."""
+def outer_ring(geometry: BaseGeometry, lat: float | None, lng: float | None) -> list[list[float]]:
+    """Outer ring as [[lng, lat], ...]. A multi-site campus gives the part at (or nearest to) the university point,
+    not the largest one: University of Cambridge's largest site lies 4 km from the town-centre colleges."""
     if geometry.geom_type == "MultiPolygon":
-        geometry = max(geometry.geoms, key=lambda g: g.area)
+        if lat is not None and lng is not None:
+            point = Point(lng, lat)
+            geometry = min(geometry.geoms, key=lambda g: (g.distance(point), -g.area))
+        else:
+            geometry = max(geometry.geoms, key=lambda g: g.area)
     return [[round(x, 6), round(y, 6)] for x, y in geometry.exterior.coords]

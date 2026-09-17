@@ -201,9 +201,6 @@ export type CampusMap = {
     checked_providers: PanoramaProvider[];
     start: { lat: number; lng: number; captured_at: string | null } | null;
   };
-  /** Demo only: street segments with panorama coverage and the placeholder projection bbox. */
-  pano_paths?: LngLat[][];
-  bbox?: { w: number; e: number; s: number; n: number };
 };
 
 /* ---------- Mascot + chat ---------- */

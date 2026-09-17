@@ -1,7 +1,7 @@
 import asyncio
 
 import httpx
-from shapely.geometry import Polygon
+from shapely.geometry import MultiPolygon, Polygon
 
 from app.services.sources import osm
 from app.services.sources.base import SourceQuery
@@ -23,7 +23,15 @@ def test_pick_campus_prefers_wikidata_and_handles_site_relation():
     campus = osm.pick_campus([other, SITE], "Q1", ["U"], 0.5, 0.5)
     assert campus.osm_url == "https://www.openstreetmap.org/relation/7"
     assert campus.geometry.geom_type == "MultiPolygon"
-    assert osm.outer_ring(campus.geometry)[0] in ([0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0])
+    assert osm.outer_ring(campus.geometry, 0.5, 0.5)[0] in ([0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0])
+
+
+def test_outer_ring_takes_the_part_at_the_university_point_not_the_largest():
+    # Cambridge: a large outlying site plus small town-centre parts where the university point is
+    site = MultiPolygon([Polygon([(10, 10), (20, 10), (20, 20), (10, 20)]), Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])])
+    assert osm.outer_ring(site, 0.5, 0.5)[0] == [0.0, 0.0]
+    assert osm.outer_ring(site, 1.5, -0.5)[0] == [0.0, 0.0]  # no part contains it: the nearest one
+    assert osm.outer_ring(site, None, None)[0] == [10.0, 10.0]  # no point: the largest
 
 
 def test_building_type_follows_contract_table():
