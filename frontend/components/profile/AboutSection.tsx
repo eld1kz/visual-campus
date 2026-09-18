@@ -45,13 +45,13 @@ export function AboutSection({ profile, onOpenMap }: Props) {
         </div>
       </div>
 
-      <div onClick={onOpenMap} className="cursor-pointer">
+      <div>
         {university.city_center && university.lat != null ? (
           <CityCenterMap university={university} />
         ) : (
           <div className="ph-grid h-[190px] rounded-[18px] [--g:20px]" />
         )}
-        <div className="pt-[9px] text-[12.5px] text-ink-3">
+        <div onClick={onOpenMap} className="cursor-pointer pt-[9px] text-[12.5px] text-ink-3">
           <div className="mb-1 font-medium text-ink-2">
             {t.distance}
             {university.city_center ? ` · ${university.city_center.name}` : ""}

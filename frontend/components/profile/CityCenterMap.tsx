@@ -10,7 +10,7 @@ const CENTER_COLOR = "#e0533d";
 
 type Props = { university: ProfileUniversity };
 
-/** Static mini-map: campus point, city centre point and the road route (or a straight line) between them. */
+/** Mini-map you can drag and zoom: campus point, city centre point and the road route (or a straight line). */
 export function CityCenterMap({ university }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const { lat, lng, city_center: center, center_route: route } = university;
@@ -36,9 +36,13 @@ export function CityCenterMap({ university }: Props) {
         style: STYLE_URL,
         bounds,
         fitBoundsOptions: { padding: { top: 44, bottom: 24, left: 32, right: 32 } },  // pins point down: room on top
-        interactive: false,
+        // Drag and pinch work directly; the mouse wheel zooms only with Ctrl/⌘ so the page still scrolls.
+        cooperativeGestures: true,
+        dragRotate: false,
         attributionControl: { compact: true },
       });
+      instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+      instance.touchZoomRotate.disableRotation();
       map = instance;
       instance.on("load", () => {
         instance.addSource("route", {
