@@ -21,6 +21,8 @@ NOT_A_PHOTO = re.compile(
     r"로고|엠블럼|포스터|전단|표지|문서|증명서|상장|우표|지폐|"
     r"логотип|герб|афиш|плакат|листовк|буклет|обложк|документ|диплом|сертификат|грамот|почтов\w* марк|банкнот|"
     r"\bскан|журнал|газет|картин|"
+    # Charts and rankings: "KazNU QS 2012-2024.jpg" is a line chart that OpenCLIP took for a campus place.
+    r"\brankings?\b|\bqs (world|university|rankings?|\d{4})|\bgraph\b|infographic|statistics?\b|рейтинг|график|инфографик|статистик|"
     # Microscopy: an image of a specimen, not of any place.
     r"micrograph|\b(afm|sem|tem|stm|confocal|fluorescence|atomic force|electron)( microscop(e|y))? (images?|scans?)\b|"
     r"under (an? |the )?(\w+ )?microscope|микрофотограф|под микроскопом|현미경 사진",

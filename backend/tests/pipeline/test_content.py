@@ -51,6 +51,11 @@ def test_newsletter_is_not_a_campus_photo():
     assert score(raw(title="Research newsletter issue 50 cover.jpg"), CTX) is None
 
 
+def test_charts_and_rankings_are_not_campus_photos():
+    for title in ["File:KazNU QS 2012-2024.jpg", "File:Enrollment graph 2020.png", "File:Рейтинг университетов.jpg"]:
+        assert score(raw(title=title, description="КазНУ им. Аль-Фараби", date_taken="2023-07-31"), CTX) is None, title
+
+
 def test_event_and_people_categories_count():
     for categories in [
         ["Events at the Massachusetts Institute of Technology"],
