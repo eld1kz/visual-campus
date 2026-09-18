@@ -241,11 +241,11 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
         evidence.append(_ev("text", t["official"].format(s=official), W_OFFICIAL_SITE))
 
     content = content_evidence(raw, ctx)
+    if raw.vision_checked and raw.vision_label:
+        key = "vision_veto" if raw.vision_veto else f"vision_{raw.vision_label}"
+        evidence.append(_ev("vision", t[key], raw.vision_weight))
     if content:
         evidence.append(content)
-
-    if raw.vision_checked and raw.vision_label:
-        evidence.append(_ev("vision", raw.vision_label, raw.vision_weight))
 
     if not raw.license and not official:
         evidence.append(_ev("missing", t["no_license"], W_NO_LICENSE))
@@ -257,7 +257,7 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
         evidence.append(_ev("missing", t["not_visually_checked"], 0))
 
     confidence, tier = finalize(evidence)
-    if raw.vision_checked and raw.vision_weight < 0:
+    if raw.vision_veto:  # only a wide-margin model call overrides the metadata
         confidence, tier = min(confidence, UNCONFIRMED_MAX), "unconfirmed"
     if not raw.vision_checked and tier == "verified":
         confidence, tier = VERIFIED_FROM - 1, "likely"

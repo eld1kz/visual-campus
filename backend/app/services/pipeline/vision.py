@@ -13,6 +13,14 @@ from app.models import Photo, RawImage
 
 BATCH_SIZE = 8
 DOWNLOAD_CONCURRENCY = 8
+
+# Cosine-similarity margin between the best positive and the best negative prompt (ViT-B-32, measured on
+# real Commons files): |margin| < 0.03 is noise, 0.03..0.07 is a soft signal, ≥ 0.07 is a confident call.
+INCONCLUSIVE_MARGIN = 0.03
+VETO_MARGIN = 0.07
+W_VISION_POSITIVE = 12
+W_VISION_NEGATIVE = -20  # soft; geotag inside campus + official category + name in text still reach verified
+POSITIVE_PROMPTS = 4
 MODEL_NAME = "ViT-B-32"
 HF_SNAPSHOT = Path.home() / ".cache/huggingface/hub/models--laion--CLIP-ViT-B-32-laion2B-s34B-b79K/snapshots"
 
@@ -28,10 +36,12 @@ PROMPTS = [
     (None, False, "a close up photo of an object specimen experiment food or laboratory equipment"),
 ]
 
+Verdict = tuple[str, int, str | None, bool]  # label key, weight, category, veto
+
 _model = None
 _preprocess = None
 _text_features = None
-_cache: dict[str, tuple[float, str | None, int, str | None, tuple[float, ...]]] = {}
+_cache: dict[str, tuple[float, Verdict, tuple[float, ...]]] = {}
 _model_lock: asyncio.Lock | None = None
 
 
@@ -61,12 +71,27 @@ def _load_model():
     return _model, _preprocess, _text_features
 
 
-def _classify(contents: list[bytes]) -> list[tuple[str | None, int, str | None, tuple[float, ...]] | None]:
+def verdict(similarities: list[float]) -> Verdict:
+    """Map one row of prompt similarities (PROMPTS order) to a soft signal, a confident veto, or nothing."""
+    positives, negatives = similarities[:POSITIVE_PROMPTS], similarities[POSITIVE_PROMPTS:]
+    positive_index = max(range(len(positives)), key=positives.__getitem__)
+    margin = max(positives) - max(negatives)
+    if margin <= -VETO_MARGIN:
+        return ("not_campus_place", W_VISION_NEGATIVE, None, True)
+    if margin <= -INCONCLUSIVE_MARGIN:
+        return ("not_campus_place", W_VISION_NEGATIVE, None, False)
+    if margin >= INCONCLUSIVE_MARGIN:
+        category = PROMPTS[positive_index][0]
+        return ("campus_place", W_VISION_POSITIVE, category if category != "campus" else None, False)
+    return ("inconclusive", 0, None, False)
+
+
+def _classify(contents: list[bytes]) -> list[tuple[Verdict, tuple[float, ...]] | None]:
     import torch
 
     model, preprocess, text_features = _load_model()
     tensors, positions = [], []
-    results: list[tuple[str | None, int, str | None, tuple[float, ...]] | None] = [None] * len(contents)
+    results: list[tuple[Verdict, tuple[float, ...]] | None] = [None] * len(contents)
     for index, content in enumerate(contents):
         try:
             with Image.open(io.BytesIO(content)) as image:
@@ -81,23 +106,21 @@ def _classify(contents: list[bytes]) -> list[tuple[str | None, int, str | None, 
         image_features /= image_features.norm(dim=-1, keepdim=True)
         similarities = image_features @ text_features.T
     for pos, row, embedding in zip(positions, similarities, image_features):
-        positive_index = int(row[:4].argmax())
-        negative_index = 4 + int(row[4:].argmax())
-        positive, negative = float(row[positive_index]), float(row[negative_index])
-        if negative > positive + 0.015:
-            verdict = ("Visual check: likely not a campus place", -30, None)
-        elif positive > negative + 0.015:
-            category = PROMPTS[positive_index][0]
-            verdict = ("Visual check: campus place", 12, category if category != "campus" else None)
-        else:
-            verdict = ("Visual check: scene is ambiguous", 0, None)
-        results[pos] = (*verdict, tuple(float(value) for value in embedding.tolist()))
+        results[pos] = (verdict([float(value) for value in row.tolist()]), tuple(float(value) for value in embedding.tolist()))
     return results
+
+
+def _apply(raw: RawImage, result: Verdict) -> RawImage:
+    label, weight, category, veto = result
+    return raw.model_copy(update={
+        "vision_checked": True, "vision_label": label, "vision_weight": weight,
+        "vision_veto": veto, "vision_category": category,
+    })
 
 
 def embedding_for_url(url: str) -> tuple[float, ...] | None:
     cached = _cache.get(url)
-    return cached[4] if cached and time.monotonic() - cached[0] < 7 * 86400 else None
+    return cached[2] if cached and time.monotonic() - cached[0] < 7 * 86400 else None
 
 
 async def batch_vision_check(
@@ -142,11 +165,7 @@ async def batch_vision_check(
             for index, ((raw, _), content) in enumerate(zip(chunk, contents)):
                 cached = _cache.get(raw.full_url)
                 if content == b"" and cached:
-                    _, label, weight, category, _ = cached
-                    updated[raw.id] = raw.model_copy(update={
-                        "vision_checked": True, "vision_label": label,
-                        "vision_weight": weight, "vision_category": category,
-                    })
+                    updated[raw.id] = _apply(raw, cached[1])
                 elif content:
                     positions.append(index)
                     new_contents.append(content)
@@ -156,12 +175,9 @@ async def batch_vision_check(
                     if result is None:
                         continue
                     raw = chunk[chunk_index][0]
-                    label, weight, category, embedding = result
-                    _cache[raw.full_url] = (time.monotonic(), label, weight, category, embedding)
-                    updated[raw.id] = raw.model_copy(update={
-                        "vision_checked": True, "vision_label": label,
-                        "vision_weight": weight, "vision_category": category,
-                    })
+                    result_verdict, embedding = result
+                    _cache[raw.full_url] = (time.monotonic(), result_verdict, embedding)
+                    updated[raw.id] = _apply(raw, result_verdict)
     return updated
 
 

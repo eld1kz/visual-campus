@@ -168,7 +168,7 @@ data: <одна строка JSON>
 | `geo` | геотег относительно полигона/точки кампуса | + внутри/рядом, − далеко |
 | `category` | категория/подкатегория Commons вуза, тег здания OSM | + |
 | `text` | название вуза в заголовке/описании; официальный домен | + |
-| `vision` | результат визуальной проверки моделью | + или − |
+| `vision` | результат визуальной проверки моделью: +12 «похоже на место», −20 «не похоже», 0 «неубедительно» | + или − |
 | `missing` | нет важного признака (геотега, лицензии) | − |
 | `date` | происхождение даты съёмки или только дата загрузки | 0 (на tier не влияет) |
 | `content` | похоже на людей/мероприятие/логотип, а не на место | − |
@@ -181,6 +181,10 @@ data: <одна строка JSON>
 - `verified` — ≥ 80; `likely` — 60..79; `unconfirmed` — < 60.
 - Без положительных доказательств места (`geo`, `category`, `text`) фото не может подняться выше `unconfirmed`. Нет данных — низкая оценка, а не догадка.
 - Фото с `vision_checked=false` не может быть `verified`: максимум `likely`, а evidence содержит `Not visually checked (time limit)`.
+- Визуальная проверка — мягкий сигнал. Отрицательный вердикт (−20) перекрывается сильными метаданными: геотег внутри
+  контура + категория Commons вуза + название в описании остаются `verified`. Только уверенный вердикт с широким
+  отрывом (`vision_veto=true`, косинусный отрыв ≥ 0.07) держит фото на `unconfirmed`. Отрыв < 0.03 — шум: вес 0 и
+  строка `Visual check inconclusive`.
 - Свежесть меняет только порядок и подпись. Она никогда не повышает и не понижает `tier`.
 - `done.photo_ids` включает `unconfirmed`; клиент удаляет только provisional фото, которых нет в списке
   (например, вытесненные лимитом надёжных фото), и показывает для категории без надёжных фото «Недостаточно данных».
@@ -351,6 +355,9 @@ class RawImage(BaseModel):
     date_source: Literal["exif", "source_metadata", "structured_data", "upload_only", "text_hint", "unknown"]
     date_hint_year: int | None = None # слабая подсказка из текста; не показывается как дата съёмки
     vision_checked: bool = False
+    vision_label: Literal["campus_place", "not_campus_place", "inconclusive"] | None = None
+    vision_weight: int = 0            # +12 / −20 / 0
+    vision_veto: bool = False         # уверенный отрицательный вердикт: tier не выше unconfirmed
     subject_id: str | None = None
     subject_name: str | None = None
     subject_kind: Literal["university", "building", "city"] | None = None

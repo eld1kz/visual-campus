@@ -515,7 +515,7 @@ class ProfileBuild:
         count = self._count(result.name)
         self.counts[result.name] = count
         source_raws = [raw for raw in self.raws.values() if raw.source == result.name]
-        hidden_vision = sum(raw.vision_checked and raw.vision_weight < 0 for raw in source_raws)
+        hidden_vision = sum(raw.vision_veto for raw in source_raws)
         duplicate_or_unshown = max(0, len(source_raws) - count - hidden_vision)
         logger.info(
             "source_metrics source=%s candidates=%d shown=%d hidden_vision=%d hidden_duplicate_or_rank=%d "

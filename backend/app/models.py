@@ -303,8 +303,9 @@ class RawImage(BaseModel):
     date_source: DateSource = "unknown"
     date_hint_year: int | None = None
     vision_checked: bool = False
-    vision_label: str | None = None
+    vision_label: Literal["campus_place", "not_campus_place", "inconclusive"] | None = None
     vision_weight: int = 0
+    vision_veto: bool = Field(default=False, description="Model is confident by a wide margin: never above unconfirmed")
     vision_category: PhotoCategory | None = None
     subject_id: str | None = None
     subject_name: str | None = None
