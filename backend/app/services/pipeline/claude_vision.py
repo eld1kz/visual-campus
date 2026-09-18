@@ -21,8 +21,8 @@ from app.models import Photo, RawImage
 
 logger = logging.getLogger("visual_campus.claude_vision")
 
-MODEL = "claude-opus-5"
-BATCH_SIZE = 5  # images per request: ~5 s each at low effort
+MODEL = "claude-haiku-4-5"  # fastest and cheapest; Haiku 4.5 takes no `effort` setting
+BATCH_SIZE = 5  # images per request
 PARALLEL_REQUESTS = 16
 MAX_SIDE_PX = 512  # ~350 input tokens per image
 DOWNLOAD_CONCURRENCY = 12
@@ -127,7 +127,7 @@ async def _ask(images: list[str], name: str) -> list[dict]:
     response = await _client.messages.create(
         model=MODEL,
         max_tokens=2048,
-        output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
+        output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
         messages=[{"role": "user", "content": content}],
     )
     if response.stop_reason != "end_turn":

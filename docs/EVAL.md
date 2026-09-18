@@ -113,7 +113,7 @@ The slowest profile (Nazarbayev) spends the time on 163 candidates: pHash groupi
 
 Keys: Mapillary, Brave, Anthropic (`LLM_API_KEY`). Flickr and Openverse credentials not set.
 Reliable targets raised to `campus=60,dorms=20,classrooms=25,libraries=20,city=20` (was 12/6/4/4/4: every profile
-hit the campus cap of 12, and reliable photos over the cap were dropped). Claude (`claude-opus-5`, low effort)
+hit the campus cap of 12, and reliable photos over the cap were dropped). Claude (`claude-opus-5`, low effort; since switched to `claude-haiku-4-5`)
 checks up to 80 borderline photos per profile in batches of 5, 16 requests in parallel, next to OpenCLIP.
 
 | University | Candidates | Final V / L / U | Reliable before → after | Reliable 2024+ | Claude checked | Done |
