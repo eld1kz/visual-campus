@@ -98,8 +98,13 @@ def compute_stats(photos: list[Photo]) -> ProfileStats:
 
 
 def search_names(uni: UniversityRecord) -> list[str]:
-    """English name first: the OSM collector searches Nominatim by the first name."""
-    return list(dict.fromkeys([uni.name_en, uni.name, *uni.names]))
+    """English name first: the OSM collector searches Nominatim by the first name.
+
+    A single Latin word that is not an acronym ("Cambridge" for the University of Cambridge) is dropped: as an alias
+    it would credit any photo taken in that town, such as Harvard or MIT, with a mention of the university.
+    """
+    names = list(dict.fromkeys([uni.name_en, uni.name, *uni.names]))
+    return [n for n in names if not (n.isascii() and len(n.split()) == 1 and not n.isupper())]
 
 
 def distance_to_center_km(uni: UniversityRecord) -> float | None:

@@ -153,3 +153,12 @@ def test_repeated_batches_resend_a_photo_only_when_it_changed(fake):
     assert len(before) == 2  # weak once, strong once — not once per repeat
     assert before[0] != before[1]
     assert events[-1][1]["stats"]["photos"] == 1
+
+
+def test_search_names_drop_a_lone_toponym_but_keep_acronyms_and_other_scripts():
+    from app.services.orchestrator import search_names
+    from tests.api.fakes import record
+
+    uni = record(name="University of Cambridge", name_en="University of Cambridge", city=None,
+                 names=["University of Cambridge", "Cambridge", "Cambridge University", "KAIST", "고려대"])
+    assert search_names(uni) == ["University of Cambridge", "Cambridge University", "KAIST", "고려대"]
