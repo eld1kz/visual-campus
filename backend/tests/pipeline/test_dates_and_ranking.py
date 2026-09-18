@@ -69,3 +69,28 @@ def test_selection_caps_reliable_photos_per_category_but_not_unconfirmed():
 
 def test_targets_are_parsed_from_settings_format():
     assert parse_targets("campus=12, dorms=6,bad,city=x") == {"campus": 12, "dorms": 6}
+
+
+def test_showcase_order_puts_highlights_first_then_rotates_categories_and_spreads_pages():
+    from app.services.pipeline.ranking import showcase_order
+
+    def photo(pid, category, confidence=90, highlight=False, page=None, tier="verified"):
+        p = score(raw(id=pid, lat=37.59, lng=127.034, matched_category="Korea University", title="Korea University"), CTX)
+        return p.model_copy(update={"category": category, "confidence": confidence, "highlight": highlight,
+                                    "tier": tier, "source_url": page or f"https://x/{pid}"})
+
+    photos = [photo("c1", "campus", 99, page="https://site/a"), photo("c2", "campus", 98, page="https://site/a"),
+              photo("c3", "campus", 97), photo("d1", "dorms", 70), photo("l1", "libraries", 60),
+              photo("main", "campus", 80, highlight=True), photo("u", "campus", 50, tier="unconfirmed")]
+    order = [p.id for p in showcase_order(photos)]
+    assert order[0] == "main"                      # showcase view first
+    assert order[1:4] == ["c1", "d1", "l1"]        # then one per category
+    assert order[-1] == "u"                        # unconfirmed last
+    assert order.index("c2") > order.index("c3") or order[order.index("c1") + 1] != "c2"  # same page not twice in a row
+
+
+def test_claude_highlight_marks_a_reliable_campus_photo():
+    from app.services.pipeline import claude_vision as cv
+    base = raw(lat=37.59, lng=127.034, matched_category="Korea University", title="Korea University")
+    checked = cv.apply(base, {"i": 1, "label": "campus_place", "confidence": 95, "category": "campus", "highlight": True})
+    assert score(checked, CTX).highlight

@@ -81,4 +81,37 @@ def select_targets(photos: list[Photo], targets: dict[str, int] | None = None) -
         target = targets.get(category, len(reliable))
         selected.extend(_diverse_top(reliable, target))
         selected.extend(p for p in group if p.tier == "unconfirmed")
-    return rank_photos(selected)
+    return showcase_order(selected)
+
+
+SHOWCASE_CATEGORIES = ["campus", "dorms", "classrooms", "libraries", "city"]
+MAX_HIGHLIGHTS = 4
+
+
+def showcase_order(photos: list[Photo]) -> list[Photo]:
+    """Order for the default view: a few showcase views first (main building, gate, overview), then the reliable
+    photos round-robin across categories so the grid is not 30 campus shots in a row, then unconfirmed ones.
+
+    Within a category the rank order holds; a photo from the same source page as the previous one waits a turn.
+    """
+    ranked = rank_photos(photos)
+    reliable = [p for p in ranked if p.tier != "unconfirmed"]
+    highlights: list[Photo] = []
+    # Dashcam street-level frames are real but poor showcase shots: ordinary photos come first.
+    for photo in sorted(reliable, key=lambda p: p.source_domain == "www.mapillary.com"):
+        if photo.highlight and len(highlights) < MAX_HIGHLIGHTS and \
+                all(photo.source_url != h.source_url for h in highlights):
+            highlights.append(photo)
+    chosen = {p.id for p in highlights}
+    queues = {c: [p for p in reliable if p.category == c and p.id not in chosen] for c in SHOWCASE_CATEGORIES}
+    queues.update({c: [p for p in reliable if p.category == c]
+                   for c in {p.category for p in reliable} - set(SHOWCASE_CATEGORIES)})
+    ordered = list(highlights)
+    while any(queues.values()):
+        for queue in queues.values():
+            if not queue:
+                continue
+            last = ordered[-1].source_url if ordered else None
+            index = next((i for i, p in enumerate(queue) if p.source_url != last), 0)
+            ordered.append(queue.pop(index))
+    return ordered + [p for p in ranked if p.tier == "unconfirmed"]

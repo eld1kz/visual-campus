@@ -83,6 +83,7 @@ class Photo(BaseModel):
     date_source: DateSource = "unknown"
     freshness: Freshness = "date_unknown"
     vision_checked: bool = False
+    highlight: bool = Field(default=False, description="Main building, main gate or campus overview: shown first")
     retrieved_at: str
     lat: float | None
     lng: float | None
@@ -308,6 +309,7 @@ class RawImage(BaseModel):
     vision_veto: bool = Field(default=False, description="Model is confident by a wide margin: never above unconfirmed")
     vision_category: PhotoCategory | None = None
     vision_source: Literal["openclip", "claude"] | None = None
+    vision_highlight: bool = False
     subject_id: str | None = None
     subject_name: str | None = None
     subject_kind: Literal["university", "building", "city"] | None = None

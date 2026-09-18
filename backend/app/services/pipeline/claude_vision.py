@@ -47,8 +47,9 @@ SCHEMA = {
                     "label": {"type": "string", "enum": LABELS},
                     "category": {"type": "string", "enum": CATEGORIES},
                     "confidence": {"type": "integer"},
+                    "highlight": {"type": "boolean"},
                 },
-                "required": ["i", "label", "category", "confidence"],
+                "required": ["i", "label", "category", "confidence", "highlight"],
                 "additionalProperties": False,
             },
         }
@@ -65,7 +66,10 @@ PROMPT = (
     "- not_a_photo: logo, chart, map, screenshot, document, poster, drawing\n"
     "- unrelated_place: a real place that is clearly not a university campus (nature, shops, a highway)\n"
     "category: campus, dorms, classrooms (lecture halls, labs, teaching buildings), libraries, or city (off-campus "
-    "town views). confidence: 0-100, how sure you are of the label. You cannot tell which university it is from the "
+    "town views); dorms for student housing buildings or rooms. highlight: true only for a showcase view a "
+    "visitor should see first: the main building, the main gate or entrance, a famous landmark of the campus, or a "
+    "wide overview/aerial of the campus. confidence: 0-100, how sure you are of the label. You cannot tell which "
+    "university it is from the "
     "image alone; judge only whether it shows a campus place. Return one result per image, i = image number."
 )
 
@@ -91,16 +95,16 @@ def candidates(items: list[tuple[RawImage, Photo]], limit: int) -> list[tuple[Ra
 def apply(raw: RawImage, verdict: dict) -> RawImage:
     """Map one Claude result onto the shared vision fields; a low-confidence answer means inconclusive."""
     label, sure = verdict["label"], verdict["confidence"]
-    category = verdict["category"] if verdict["category"] in ("classrooms", "libraries") else None
+    category = verdict["category"] if verdict["category"] in ("dorms", "classrooms", "libraries") else None
     if label in ("campus_place", "building_interior") and sure >= POSITIVE_FROM:
         update = {"vision_label": "campus_place", "vision_weight": W_POSITIVE, "vision_veto": False,
-                  "vision_category": category}
+                  "vision_category": category, "vision_highlight": bool(verdict.get("highlight"))}
     elif label not in ("campus_place", "building_interior") and sure >= POSITIVE_FROM:
         update = {"vision_label": "not_campus_place", "vision_weight": W_NEGATIVE,
                   "vision_veto": label == "not_a_photo" and sure >= VETO_FROM, "vision_category": None}
     else:
         update = {"vision_label": "inconclusive", "vision_weight": 0, "vision_veto": False, "vision_category": None}
-    return raw.model_copy(update={"vision_checked": True, "vision_source": "claude", **update})
+    return raw.model_copy(update={"vision_checked": True, "vision_source": "claude", "vision_highlight": False, **update})
 
 
 def _jpeg(content: bytes) -> str | None:

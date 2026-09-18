@@ -76,6 +76,8 @@ export type Photo = {
   date_source: DateSource;
   freshness: Freshness;
   vision_checked: boolean;
+  /** Main building, main gate or campus overview: the server puts these first. */
+  highlight?: boolean;
   retrieved_at: string;
   lat?: number | null;
   lng?: number | null;

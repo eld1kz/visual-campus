@@ -45,6 +45,12 @@ W_SPECIMEN = -15
 W_OTHER_INSTITUTION = -20
 
 EDGE_M = 250
+# Showcase views named in the title/description; Claude flags the rest (vision_highlight).
+HIGHLIGHT_TEXT = re.compile(
+    r"main (building|gate|entrance|hall)|clock tower|campus (overview|panorama|view)|aerial|panorama|"
+    r"главн\w* (корпус|здани|вход|ворот)|панорам|본관|정문|전경",
+    re.IGNORECASE,
+)
 POSITIVE_TYPES = {"geo", "category", "text"}
 BUILDING_TYPE_NAMES = {
     "ru": {"academic": "учебное", "dorm": "общежитие", "library": "библиотека", "sport": "спорт",
@@ -267,7 +273,7 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
     # Without a polygon, a geotag beyond the point radius is "unknown"; unlinked, it is not the campus.
     off_campus = on_campus is False or (on_campus is None and raw.lat is not None and not linked)
     category, tags = cat.classify(raw, False if off_campus else on_campus, linked, building)
-    if raw.vision_category in ("classrooms", "libraries") and not off_campus:
+    if raw.vision_category in ("dorms", "classrooms", "libraries") and not off_campus:
         category = raw.vision_category
     subject_categories = {"dorm": "dorms", "library": "libraries", "academic": "classrooms"}
     if raw.subject_building_type in subject_categories and not off_campus:
@@ -289,6 +295,8 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
         date_source=date_source,
         freshness=freshness(raw.date_taken, raw.date_hint_year),
         vision_checked=raw.vision_checked,
+        highlight=category == "campus" and tier != "unconfirmed" and (
+            raw.vision_highlight or bool(HIGHLIGHT_TEXT.search(cat.own_text(raw)))),
         retrieved_at=ctx.today.isoformat(),
         lat=raw.lat,
         lng=raw.lng,
