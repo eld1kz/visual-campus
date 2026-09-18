@@ -182,8 +182,8 @@ data: <одна строка JSON>
 - Без положительных доказательств места (`geo`, `category`, `text`) фото не может подняться выше `unconfirmed`. Нет данных — низкая оценка, а не догадка.
 - Фото с `vision_checked=false` не может быть `verified`: максимум `likely`, а evidence содержит `Not visually checked (time limit)`.
 - Свежесть меняет только порядок и подпись. Она никогда не повышает и не понижает `tier`.
-- `unconfirmed` могут появиться как provisional SSE-события во время сбора, но финальный `done.photo_ids` их не включает;
-  клиент удаляет их из профиля и показывает для незаполненной категории «Недостаточно данных».
+- `done.photo_ids` включает `unconfirmed`; клиент удаляет только provisional фото, которых нет в списке
+  (например, вытесненные лимитом надёжных фото), и показывает для категории без надёжных фото «Недостаточно данных».
 - Логотипы, схемы, карты, скриншоты в профиль не попадают вовсе.
 
 **Дубли:** в профиль идёт одна копия — с наибольшим `confidence`; остальные попадают в её `duplicates`.
@@ -378,7 +378,7 @@ class SourceQuery:
     polygon: list[list[float]] | None
     geosearch_centers: list[tuple[float, float, int]] | None  # lat, lng, radius_m; покрытие всего полигона
     subjects: list[SearchSubject] | None                    # университет, здания, город
-    category_targets: dict[str, int] | None                 # сумма по умолчанию 15
+    category_targets: dict[str, int] | None                 # надёжных фото на категорию; PHOTO_TARGETS, по умолчанию 30
 
 class SourceResult(BaseModel):
     name: str                     # имя из таблицы §3
@@ -437,6 +437,7 @@ class Deduplicator:                  # состояние на один проф
 | `OPENVERSE_CLIENT_ID`, `OPENVERSE_CLIENT_SECRET` | Openverse | анонимно: 20 результатов/запрос и низкий rate limit |
 | `VISION_ENABLED` | локальный OpenCLIP | `0`: фото остаются `vision_checked=false`, tier максимум `likely` |
 | `VISION_MAX_CANDIDATES` | локальный OpenCLIP | по умолчанию сначала проверяются 140 лучших кандидатов |
+| `PHOTO_TARGETS` | финальный отбор | `campus=12,dorms=6,classrooms=4,libraries=4,city=4` надёжных фото на категорию |
 | `KAKAO_API_KEY` | map-agent | Kakao не проверяется |
 | `LLM_API_KEY` | api-agent (резюме), verify-agent (vision), mascot-agent (чат) | резюме из Wikipedia без LLM; без vision; чат отвечает поиском по текстам или `dont_know` |
 | `SOURCE_TIMEOUT_S` | `/resolve` | 5 с |

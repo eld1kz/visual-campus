@@ -1,4 +1,5 @@
 from app.models import Building, CampusShape
+from app.services.pipeline.ranking import DEFAULT_TARGETS
 from app.services.query_planner import build_query_plan, polygon_search_centers
 from app.services.wikidata import UniversityRecord
 
@@ -17,7 +18,7 @@ def test_query_plan_carries_names_polygon_subjects_and_targets():
     assert plan.polygon == polygon and plan.bbox == (71.39, 51.09, 71.41, 51.11)
     assert plan.geosearch_centers and len(plan.geosearch_centers) <= 9
     assert [subject.kind for subject in plan.subjects] == ["university", "building"]
-    assert sum(plan.category_targets.values()) == 15
+    assert plan.category_targets == DEFAULT_TARGETS and sum(plan.category_targets.values()) > 0
 
 
 def test_point_only_plan_has_one_kilometre_search_circle():

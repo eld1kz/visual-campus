@@ -3,11 +3,24 @@
 from collections import defaultdict
 from math import fsum
 
+from app.config import settings
 from app.models import Photo
 
 TIER_RANK = {"verified": 2, "likely": 1, "unconfirmed": 0}
 FRESHNESS_RANK = {"2024_plus": 4, "2020_2023": 3, "older": 2, "date_unknown": 1, "historic": 0}
-DEFAULT_TARGETS = {"campus": 6, "dorms": 3, "classrooms": 2, "libraries": 2, "city": 2}
+
+
+def parse_targets(value: str) -> dict[str, int]:
+    """`campus=12,dorms=6,…` → per-category count of reliable photos to keep."""
+    targets: dict[str, int] = {}
+    for part in value.split(","):
+        name, _, count = part.strip().partition("=")
+        if name and count.strip().isdigit():
+            targets[name.strip()] = int(count)
+    return targets
+
+
+DEFAULT_TARGETS = parse_targets(settings.photo_targets)
 
 
 def rank_key(photo: Photo) -> tuple[int, int, int, int, int]:
@@ -53,18 +66,20 @@ def _diverse_top(photos: list[Photo], count: int) -> list[Photo]:
     return selected
 
 
-def select_targets(photos: list[Photo], targets: dict[str, int] | None = None, include_unconfirmed: bool = False) -> list[Photo]:
+def select_targets(photos: list[Photo], targets: dict[str, int] | None = None) -> list[Photo]:
+    """Keep the `target` best reliable photos per category; unconfirmed photos are never dropped here.
+
+    The contract (docs/CONTRACT.md §3) sends unconfirmed photos to the client, which hides them by default.
+    Dropping them server-side would also throw away the recent photos that only lack strong metadata.
+    """
     targets = targets or DEFAULT_TARGETS
     selected: list[Photo] = []
     grouped: dict[str, list[Photo]] = defaultdict(list)
     for photo in rank_photos(photos):
         grouped[photo.category].append(photo)
-    for category, target in targets.items():
-        reliable = [p for p in grouped[category] if p.tier != "unconfirmed"]
-        chosen = _diverse_top(reliable, target)
-        if include_unconfirmed and len(chosen) < target:
-            chosen += _diverse_top(
-                [p for p in grouped[category] if p.tier == "unconfirmed"], target - len(chosen)
-            )
-        selected.extend(chosen)
+    for category, group in grouped.items():
+        reliable = [p for p in group if p.tier != "unconfirmed"]
+        target = targets.get(category, len(reliable))
+        selected.extend(_diverse_top(reliable, target))
+        selected.extend(p for p in group if p.tier == "unconfirmed")
     return rank_photos(selected)
