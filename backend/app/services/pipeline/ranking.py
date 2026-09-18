@@ -71,15 +71,16 @@ def select_targets(photos: list[Photo], targets: dict[str, int] | None = None) -
     The contract (docs/CONTRACT.md §3) sends unconfirmed photos to the client, which hides them by default.
     Dropping them server-side would also throw away the recent photos that only lack strong metadata.
     """
-    targets = targets or DEFAULT_TARGETS
+    targets = DEFAULT_TARGETS if targets is None else targets
     selected: list[Photo] = []
     grouped: dict[str, list[Photo]] = defaultdict(list)
     for photo in rank_photos(photos):
         grouped[photo.category].append(photo)
     for category, group in grouped.items():
         reliable = [p for p in group if p.tier != "unconfirmed"]
-        target = targets.get(category, len(reliable))
-        selected.extend(_diverse_top(reliable, target))
+        target = targets.get(category)
+        # No target: every reliable photo is kept (the client pages the grid with "Show more").
+        selected.extend(reliable if target is None else _diverse_top(reliable, target))
         selected.extend(p for p in group if p.tier == "unconfirmed")
     return showcase_order(selected)
 

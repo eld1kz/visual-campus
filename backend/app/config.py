@@ -22,8 +22,8 @@ class Settings:
     vision_max_candidates: int = int(os.getenv("VISION_MAX_CANDIDATES", "140"))
     # Borderline photos checked by Claude per profile (needs LLM_API_KEY); 0 turns the Claude check off.
     claude_vision_max: int = int(os.getenv("CLAUDE_VISION_MAX", "200"))
-    # Reliable (verified/likely) photos kept per category; unconfirmed photos are always sent and hidden by the UI.
-    photo_targets: str = os.getenv("PHOTO_TARGETS", "campus=60,dorms=20,classrooms=25,libraries=20,city=20")
+    # Optional cap on reliable photos per category ("campus=60,dorms=20"); empty = keep them all.
+    photo_targets: str = os.getenv("PHOTO_TARGETS", "")
     frontend_url: str = os.getenv("FRONTEND_URL", "")
     source_timeout_s: float = float(os.getenv("SOURCE_TIMEOUT_S", "5"))
     user_agent: str = "VisualCampus/0.1 (LOCUS hackathon; https://github.com/eld1kz/visual-campus)"

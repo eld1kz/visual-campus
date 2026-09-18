@@ -18,7 +18,7 @@ def test_query_plan_carries_names_polygon_subjects_and_targets():
     assert plan.polygon == polygon and plan.bbox == (71.39, 51.09, 71.41, 51.11)
     assert plan.geosearch_centers and len(plan.geosearch_centers) <= 9
     assert [subject.kind for subject in plan.subjects] == ["university", "building"]
-    assert plan.category_targets == DEFAULT_TARGETS and sum(plan.category_targets.values()) > 0
+    assert plan.category_targets == DEFAULT_TARGETS  # empty by default: no cap on reliable photos
 
 
 def test_point_only_plan_has_one_kilometre_search_circle():

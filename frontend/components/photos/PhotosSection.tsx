@@ -10,6 +10,8 @@ import { EmptyCategory } from "./EmptyCategory";
 import { PhotoCard } from "./PhotoCard";
 import { PhotoFilters } from "./PhotoFilters";
 
+const PAGE_SIZE = 24;
+
 type Props = {
   photos: Photo[];
   sources: ProfileSourceStatus[];
@@ -26,6 +28,12 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
   const [showHistoric, setShowHistoric] = useState(false);
 
   const visible = filterPhotos(photos, { tab, tags, sort, showUnconfirmed, showHistoric });
+  // Paging restarts whenever the tab or a filter changes.
+  const filterKey = [tab, tags.join(","), sort, showUnconfirmed, showHistoric].join("|");
+  const [page, setPage] = useState({ key: filterKey, count: PAGE_SIZE });
+  const shownCount = page.key === filterKey ? page.count : PAGE_SIZE;
+  const shown = visible.slice(0, shownCount);
+  const remaining = visible.length - shown.length;
   const inTab = photos.filter((p) => tab === "all" || p.category === tab);
   const matchingTags = inTab.filter((p) => tags.length === 0 || tags.some((tag) => p.tags.includes(tag)));
   const hiddenUnconfirmed = showUnconfirmed ? 0 : matchingTags.filter((p) => p.tier === "unconfirmed").length;
@@ -68,11 +76,23 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
           onClearFilters={tags.length > 0 ? () => setTags([]) : undefined}
         />
       ) : (
-        <div className="columns-[4_250px] gap-x-3.5">
-          {visible.map((photo, i) => (
-            <PhotoCard key={photo.id} photo={photo} onOpen={() => onOpen(visible, i)} />
-          ))}
-        </div>
+        <>
+          <div className="columns-[4_250px] gap-x-3.5">
+            {shown.map((photo, i) => (
+              <PhotoCard key={photo.id} photo={photo} onOpen={() => onOpen(visible, i)} />
+            ))}
+          </div>
+          {remaining > 0 && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => setPage({ key: filterKey, count: shownCount + PAGE_SIZE })}
+                className="rounded-full bg-surface-2 px-5 py-2.5 text-[13px] font-medium text-ink transition-opacity hover:opacity-80"
+              >
+                {t.showMore} ({remaining})
+              </button>
+            </div>
+          )}
+        </>
       )}
     </>
   );

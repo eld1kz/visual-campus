@@ -387,7 +387,7 @@ class SourceQuery:
     polygon: list[list[float]] | None
     geosearch_centers: list[tuple[float, float, int]] | None  # lat, lng, radius_m; покрытие всего полигона
     subjects: list[SearchSubject] | None                    # университет, здания, город
-    category_targets: dict[str, int] | None                 # надёжных фото на категорию; PHOTO_TARGETS, по умолчанию 30
+    category_targets: dict[str, int] | None                 # потолок надёжных фото на категорию из PHOTO_TARGETS; по умолчанию {} — без потолка
 
 class SourceResult(BaseModel):
     name: str                     # имя из таблицы §3
@@ -446,7 +446,7 @@ class Deduplicator:                  # состояние на один проф
 | `OPENVERSE_CLIENT_ID`, `OPENVERSE_CLIENT_SECRET` | Openverse | анонимно: 20 результатов/запрос и низкий rate limit |
 | `VISION_ENABLED` | локальный OpenCLIP | `0`: фото остаются `vision_checked=false`, tier максимум `likely` |
 | `VISION_MAX_CANDIDATES` | локальный OpenCLIP | по умолчанию сначала проверяются 140 лучших кандидатов |
-| `PHOTO_TARGETS` | финальный отбор | `campus=60,dorms=20,classrooms=25,libraries=20,city=20` надёжных фото на категорию; сверх лимита надёжные фото отбрасываются |
+| `PHOTO_TARGETS` | финальный отбор | пусто по умолчанию: все надёжные фото; `campus=60,dorms=20` — необязательный потолок на категорию |
 | `KAKAO_API_KEY` | map-agent | Kakao не проверяется |
 | `LLM_API_KEY` | api-agent (резюме), verify-agent (vision), mascot-agent (чат) | резюме из Wikipedia без LLM; без vision; чат отвечает поиском по текстам или `dont_know` |
 | `SOURCE_TIMEOUT_S` | `/resolve` | 5 с |
