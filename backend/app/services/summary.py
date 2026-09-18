@@ -1,7 +1,7 @@
 """Profile summary (docs/CONTRACT.md §3 `summary`): only from texts collected for this profile.
 
 Without LLM_API_KEY: the Wikipedia extract as is. With a key: an LLM rewrite with [n] footnotes, validated;
-any failure falls back to the extract. The provider is not chosen yet — wire it in `complete()` only.
+any failure (timeout, refusal, API error) falls back to the extract. Provider: Anthropic Claude.
 """
 
 import asyncio
@@ -9,6 +9,7 @@ import logging
 import re
 from dataclasses import dataclass
 
+import anthropic
 import httpx
 
 from app.config import settings
@@ -17,6 +18,7 @@ from app.models import Citation, Summary
 logger = logging.getLogger("visual_campus.summary")
 
 LLM_TIMEOUT_S = 8.0
+LLM_MODEL = "claude-opus-5"
 MAX_TEXT_CHARS = 2000
 _FOOTNOTE = re.compile(r"\[(\d+)\]")
 
@@ -29,9 +31,23 @@ class SourceText:
     is_extract: bool = False  # True for the Wikipedia extract used without an LLM
 
 
+_llm: anthropic.AsyncAnthropic | None = None
+
+
 async def complete(prompt: str, client: httpx.AsyncClient) -> str:
-    """The one place to connect an LLM provider (uses settings.llm_api_key)."""
-    raise NotImplementedError("LLM provider is not configured")
+    """The one place the LLM provider is called (uses settings.llm_api_key). `client` is unused: the SDK has its own."""
+    global _llm
+    if _llm is None:
+        _llm = anthropic.AsyncAnthropic(api_key=settings.llm_api_key, max_retries=0)
+    response = await _llm.messages.create(
+        model=LLM_MODEL,
+        max_tokens=1024,
+        output_config={"effort": "low"},  # short grounded rewrite: low effort keeps it inside the timeout
+        messages=[{"role": "user", "content": prompt}],
+    )
+    if response.stop_reason == "refusal":
+        raise RuntimeError("LLM refused the request")
+    return "".join(block.text for block in response.content if block.type == "text")
 
 
 def build_prompt(texts: list[SourceText], lang: str) -> str:
