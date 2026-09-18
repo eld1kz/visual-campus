@@ -244,6 +244,11 @@ data: <одна строка JSON>
   "campus_area_km2": 0.61 | null,
   "distance_to_center_km": 4.8 | null,
   "city_center": { "name": "Seoul", "lat": 37.57, "lng": 126.98 } | null,
+  "center_route": {                               // OSRM (car), public demo server; null if it failed
+    "road_km": 7.4, "drive_min": 12,
+    "walk_min": 93,                               // оценка по road_km при 4.8 км/ч, не пеший маршрут
+    "geometry": [[127.03, 37.59], …]              // упрощённая линия дороги [lng, lat]
+  } | null,
   "wikidata_id": "Q39997",
   "ror_id": "https://ror.org/…" | null,
   "commons_category": "Korea University" | null,
