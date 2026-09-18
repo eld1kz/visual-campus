@@ -24,12 +24,21 @@ def test_upload_and_text_hints_never_become_capture_dates():
     assert text_year("Main hall in 2019") == 2019
 
 
-def test_ranking_keeps_tier_and_confidence_ahead_of_freshness():
-    verified_old = score(raw(id="old", lat=37.59, lng=127.034, date_taken="2019-01-01",
+def test_recent_likely_photo_outranks_an_old_verified_one_without_changing_tiers():
+    verified_old = score(raw(id="old", lat=37.59, lng=127.034, date_taken="2011-01-01",
                              matched_category="Korea University", title="Korea University"), CTX)
     recent_likely = score(raw(id="new", lat=37.59, lng=127.034, vision_checked=False, date_taken="2025-01-01",
                               matched_category="Korea University", title="Korea University"), CTX)
-    assert rank_photos([recent_likely, verified_old])[0].tier == "verified"
+    assert (verified_old.tier, recent_likely.tier) == ("verified", "likely")
+    assert [p.id for p in rank_photos([verified_old, recent_likely])] == ["new", "old"]
+
+
+def test_freshness_never_lifts_unconfirmed_photos_above_reliable_ones():
+    verified_old = score(raw(id="old", lat=37.59, lng=127.034, date_taken="2011-01-01",
+                             matched_category="Korea University", title="Korea University"), CTX)
+    recent_weak = score(raw(id="weak", title="Central Asia", date_taken="2025-01-01"), CTX)
+    assert recent_weak.tier == "unconfirmed" and recent_weak.freshness == "2024_plus"
+    assert [p.id for p in rank_photos([recent_weak, verified_old])] == ["old", "weak"]
 
 
 def test_selection_keeps_unconfirmed_photos_after_reliable_ones():

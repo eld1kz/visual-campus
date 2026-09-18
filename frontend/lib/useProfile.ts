@@ -42,8 +42,9 @@ function apply(store: Store, e: ProfileEvent): Store {
   if (e.event === "photo") return { ...store, progress: { ...p, photos: upsert(p.photos, e.data, (x) => x.id === e.data.id) } };
   if (e.event === "summary") return { ...store, progress: { ...p, summary: e.data } };
   const d = e.data;
-  const finalIds = new Set(d.photo_ids);
-  const finalPhotos = p.photos.filter((photo) => finalIds.has(photo.id));
+  const byId = new Map(p.photos.map((photo) => [photo.id, photo]));
+  const finalPhotos = d.photo_ids.flatMap((id) => byId.get(id) ?? []); // keep the server ranking
+
   const profile: Profile = {
     university: d.university,
     generated_in_ms: d.generated_in_ms,

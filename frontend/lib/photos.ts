@@ -4,7 +4,7 @@ export const CATEGORIES: PhotoCategory[] = ["campus", "dorms", "classrooms", "li
 export const FILTER_TAGS: PhotoTag[] = ["dorm", "sport", "labs", "student_life"];
 
 export type PhotoTab = "all" | PhotoCategory;
-export type PhotoSort = "confidence" | "date";
+export type PhotoSort = "recommended" | "confidence" | "date";
 
 export type PhotoFilter = {
   tab: PhotoTab;
@@ -22,6 +22,7 @@ export function filterPhotos(photos: Photo[], f: PhotoFilter): Photo[] {
       (p.freshness !== "historic" || f.showHistoric) &&
       (f.tags.length === 0 || f.tags.some((tag) => p.tags.includes(tag))),
   );
+  if (f.sort === "recommended") return list; // server order: tier, confidence plus freshness bonus
   return f.sort === "confidence"
     ? list.sort((a, b) => b.confidence - a.confidence)
     : list.sort((a, b) => {

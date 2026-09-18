@@ -7,7 +7,8 @@ from app.config import settings
 from app.models import Photo
 
 TIER_RANK = {"verified": 2, "likely": 1, "unconfirmed": 0}
-FRESHNESS_RANK = {"2024_plus": 4, "2020_2023": 3, "older": 2, "date_unknown": 1, "historic": 0}
+# Added to confidence for ordering only (never to the tier): a recent likely photo can precede a 2011 verified one.
+FRESHNESS_BONUS = {"2024_plus": 20, "2020_2023": 10, "older": -5, "date_unknown": -5, "historic": -10}
 
 
 def parse_targets(value: str) -> dict[str, int]:
@@ -23,14 +24,12 @@ def parse_targets(value: str) -> dict[str, int]:
 DEFAULT_TARGETS = parse_targets(settings.photo_targets)
 
 
-def rank_key(photo: Photo) -> tuple[int, int, int, int, int]:
-    # Confidence bands keep trust dominant while allowing freshness to order near-equal candidates.
+def rank_key(photo: Photo) -> tuple[int, int, int]:
+    """Reliable photos first; within them confidence plus a freshness bonus; unconfirmed always last."""
     return (
-        TIER_RANK[photo.tier],
-        photo.confidence // 5,
-        FRESHNESS_RANK[photo.freshness],
+        int(photo.tier != "unconfirmed"),
+        photo.confidence + FRESHNESS_BONUS[photo.freshness],
         photo.confidence,
-        (photo.width if hasattr(photo, "width") else 0) or 0,
     )
 
 
@@ -49,8 +48,8 @@ def _diverse_top(photos: list[Photo], count: int) -> list[Photo]:
     remaining = rank_photos(photos)
     selected: list[Photo] = []
     while remaining and len(selected) < count:
-        best_key = rank_key(remaining[0])[:4]
-        bucket = [photo for photo in remaining if rank_key(photo)[:4] == best_key]
+        best_key = rank_key(remaining[0])[:2]
+        bucket = [photo for photo in remaining if rank_key(photo)[:2] == best_key]
         if selected and len(bucket) > 1:
             selected_embeddings = [embedding_for_url(photo.full_url) for photo in selected]
             selected_embeddings = [value for value in selected_embeddings if value is not None]

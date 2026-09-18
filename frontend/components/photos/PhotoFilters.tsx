@@ -38,6 +38,9 @@ export function PhotoFilters({ tags, onToggleTag, sort, onSort, showUnconfirmed,
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <span className="text-xs text-ink-3">{t.sortBy}</span>
         <div className="flex gap-0.5">
+          <button onClick={() => onSort("recommended")} className={segment(sort === "recommended")}>
+            {t.sortRecommended}
+          </button>
           <button onClick={() => onSort("confidence")} className={segment(sort === "confidence")}>
             {t.sortConf}
           </button>

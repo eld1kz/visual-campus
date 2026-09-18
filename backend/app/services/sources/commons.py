@@ -172,8 +172,10 @@ class _Harvest:
         members: list[dict] = []
         cont: dict = {}
         while len(members) < limit:
+            # Files: newest additions to the category first, so recent photos survive the per-category limits.
+            order = {"cmsort": "timestamp", "cmdir": "desc"} if cmtype == "file" else {}
             data = await self._get({"list": "categorymembers", "cmtitle": f"Category:{category}", "cmtype": cmtype,
-                                    "cmlimit": min(500, limit - len(members)), **cont})
+                                    "cmlimit": min(500, limit - len(members)), **order, **cont})
             members += data.get("query", {}).get("categorymembers", [])
             if "continue" not in data:
                 break

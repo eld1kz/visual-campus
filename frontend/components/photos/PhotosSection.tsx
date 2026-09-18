@@ -21,7 +21,7 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
   const { t, lang } = usePreferences();
   const [tab, setTab] = useState<PhotoTab>(initialTab);
   const [tags, setTags] = useState<PhotoTag[]>([]);
-  const [sort, setSort] = useState<PhotoSort>("confidence");
+  const [sort, setSort] = useState<PhotoSort>("recommended");
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
   const [showHistoric, setShowHistoric] = useState(false);
 
