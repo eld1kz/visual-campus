@@ -75,11 +75,7 @@ export function ProfileView({ profile, stats, live, partial = false, params }: P
         generatedInMs={profile.generated_in_ms}
         stats={stats}
         aside={
-          live ? (
-            <span className="max-w-[210px] text-xs text-ink-3">{t.live.guideDemoOnly}</span>
-          ) : (
-            <GuideGreeting universityName={profile.university.name} />
-          )
+          live ? null : <GuideGreeting universityName={profile.university.name} />
         }
       />
       <AboutSection profile={profile} onOpenMap={() => setSection("map")} />
