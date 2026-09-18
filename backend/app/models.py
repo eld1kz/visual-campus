@@ -121,6 +121,15 @@ class Place(BaseModel):
     lng: float
 
 
+class CenterRoute(BaseModel):
+    """Road route campus → city centre from OSRM (car). walk_min is estimated from road_km, not routed."""
+
+    road_km: float
+    drive_min: int
+    walk_min: int
+    geometry: list[list[float]] = Field(description="[[lng, lat], ...] simplified road line")
+
+
 class ProfileUniversity(BaseModel):
     id: str
     name: str
@@ -134,6 +143,7 @@ class ProfileUniversity(BaseModel):
     campus_area_km2: float | None
     distance_to_center_km: float | None
     city_center: Place | None
+    center_route: CenterRoute | None = None
     wikidata_id: str
     ror_id: str | None
     commons_category: str | None

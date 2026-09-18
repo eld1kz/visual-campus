@@ -90,9 +90,13 @@ def fake(monkeypatch):
     async def discover_campus_subjects(client, uni, bbox=None):
         return []
 
+    async def center_route(client, lat, lng, c_lat, c_lng, timeout_s=4.0):
+        return None
+
     monkeypatch.setattr(orchestrator, "get_university", get_university)
     monkeypatch.setattr(orchestrator, "add_places", add_places)
     monkeypatch.setattr(orchestrator, "discover_campus_subjects", discover_campus_subjects)
+    monkeypatch.setattr(orchestrator, "center_route", center_route)
     monkeypatch.setattr(campus_router, "get_university", get_university)
     monkeypatch.setattr(osm, "find_campus", find_campus)
     monkeypatch.setattr(orchestrator, "wikipedia_summary", wiki)

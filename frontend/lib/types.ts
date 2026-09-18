@@ -113,6 +113,8 @@ export type ProfileUniversity = {
   distance_to_center_km: number | null;
   campus_area_km2?: number | null;
   city_center?: { name: string; lat: number; lng: number } | null;
+  /** OSRM car route to the city centre; walk_min is an estimate from road_km. */
+  center_route?: { road_km: number; drive_min: number; walk_min: number; geometry: [number, number][] } | null;
   wikidata_id?: string;
   ror_id?: string | null;
   commons_category?: string | null;

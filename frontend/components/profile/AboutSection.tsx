@@ -2,6 +2,7 @@
 
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import type { Profile } from "@/lib/types";
+import { CityCenterMap } from "./CityCenterMap";
 
 type Props = {
   profile: Profile;
@@ -11,6 +12,15 @@ type Props = {
 export function AboutSection({ profile, onOpenMap }: Props) {
   const { t, lang } = usePreferences();
   const { summary, university } = profile;
+  const route = university.center_route;
+  const minutes = (m: number) =>
+    m < 60 ? `~${m} ${t.minShort}` : `~${Math.floor(m / 60)} ${t.hourShort} ${m % 60} ${t.minShort}`;
+  const rows = [
+    university.distance_to_center_km != null && [t.straightLine, `${university.distance_to_center_km.toFixed(1)} ${t.km}`],
+    route && [t.byRoad, `${route.road_km.toFixed(1)} ${t.km}`],
+    route && [t.byCar, minutes(route.drive_min)],
+    route && [t.onFoot, minutes(route.walk_min)],
+  ].filter(Boolean) as [string, string][];
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-7 pb-[34px] pt-[30px]">
@@ -36,14 +46,26 @@ export function AboutSection({ profile, onOpenMap }: Props) {
       </div>
 
       <div onClick={onOpenMap} className="cursor-pointer">
-        <div className="ph-grid relative flex h-[150px] items-center justify-center overflow-hidden rounded-[18px] [--g:20px]">
-          <div className="h-[72px] w-[110px] rounded-md border-[1.5px] border-dashed border-accent bg-accent-soft opacity-85" />
-        </div>
-        <div className="flex justify-between gap-3 pt-[9px] text-[12.5px] text-ink-3">
-          <span>{t.distance}</span>
-          <span className="font-mono text-ink-2">
-            {university.distance_to_center_km === null ? "—" : `${university.distance_to_center_km.toFixed(1)} ${t.km}`}
-          </span>
+        {university.city_center && university.lat != null ? (
+          <CityCenterMap university={university} />
+        ) : (
+          <div className="ph-grid h-[150px] rounded-[18px] [--g:20px]" />
+        )}
+        <div className="pt-[9px] text-[12.5px] text-ink-3">
+          <div className="mb-1 font-medium text-ink-2">
+            {t.distance}
+            {university.city_center ? ` · ${university.city_center.name}` : ""}
+          </div>
+          {rows.length === 0 ? (
+            <div className="font-mono text-ink-2">—</div>
+          ) : (
+            rows.map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-3">
+                <span>{label}</span>
+                <span className="font-mono text-ink-2">{value}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

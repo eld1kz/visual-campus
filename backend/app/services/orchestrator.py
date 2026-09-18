@@ -15,7 +15,7 @@ from shapely.geometry import Polygon
 
 from app.config import settings
 from app.models import (
-    CampusShape, Photo, Place, ProfileDone, ProfileResponse, ProfileSourceStatus, ProfileStats, ProfileUniversity,
+    CampusShape, CenterRoute, Photo, Place, ProfileDone, ProfileResponse, ProfileSourceStatus, ProfileStats, ProfileUniversity,
     RawImage, SourceResult, Summary,
 )
 from app.services import cache
@@ -28,6 +28,7 @@ from app.services.sources.base import SourceQuery
 from app.services.sources.geo import distance_m
 from app.services.summary import SourceText, build_summary, extract_summary
 from app.services.wikidata import UniversityRecord, add_places, discover_campus_subjects, get_university
+from app.services.routing import center_route
 from app.services.wikipedia import summary as wikipedia_summary
 
 logger = logging.getLogger("visual_campus.orchestrator")
@@ -116,7 +117,7 @@ def distance_to_center_km(uni: UniversityRecord) -> float | None:
     return round(distance_m(uni.lat, uni.lng, center.lat, center.lng) / 1000, 1)
 
 
-def to_university(uni: UniversityRecord, shape: CampusShape | None) -> ProfileUniversity:
+def to_university(uni: UniversityRecord, shape: CampusShape | None, route: CenterRoute | None = None) -> ProfileUniversity:
     center = uni.city_center
     return ProfileUniversity(
         id=uni.wikidata_id,
@@ -131,6 +132,7 @@ def to_university(uni: UniversityRecord, shape: CampusShape | None) -> ProfileUn
         campus_area_km2=shape.area_km2 if shape else None,
         distance_to_center_km=distance_to_center_km(uni),
         city_center=Place(name=center.name, lat=center.lat, lng=center.lng) if center else None,
+        center_route=route if center else None,
         wikidata_id=uni.wikidata_id,
         ror_id=uni.ror_id,
         commons_category=uni.commons_category,
@@ -196,6 +198,7 @@ class ProfileBuild:
         self.hasher = Deduplicator()  # only its pHash cache is used; groups are rebuilt in _refresh
         self.dedup = Deduplicator()  # current groups: new batches are added incrementally, _refresh rebuilds
         self.summary: Summary | None = None
+        self.center_route: CenterRoute | None = None
         self.deadline_hit = False
         self._children: set[asyncio.Task] = set()
         self._hash_tasks: set[asyncio.Task] = set()
@@ -329,6 +332,16 @@ class ProfileBuild:
             raise
         except Exception:  # noqa: BLE001
             logger.exception("City centre lookup failed for %s", self.qid)
+            return
+        center = uni.city_center
+        if center is None or uni.lat is None or uni.lng is None:
+            return
+        try:
+            self.center_route = await center_route(client, uni.lat, uni.lng, center.lat, center.lng)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — the straight-line distance is still shown
+            logger.warning("Route to the city centre failed for %s: %s", self.qid, exc)
 
     async def _guard(self, name: str, coro) -> None:
         """A bug in one source must not break the stream: it becomes that source's `error`."""
@@ -560,7 +573,7 @@ class ProfileBuild:
                 self.counts[name] = count
                 self.log.emit(*status_event(name, result.status, count, result.took_ms))
         partial = is_partial(list(self.results.values()), self.deadline_hit)
-        university = to_university(uni, self.shape)
+        university = to_university(uni, self.shape, self.center_route)
         stats = compute_stats(self.final)
         generated = _ms(self.started)
         profile = ProfileResponse(
