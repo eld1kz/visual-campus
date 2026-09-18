@@ -42,3 +42,4 @@ next-env.d.ts
 
 # env templates are committed
 !.env.local.example
+/public/maplibre/

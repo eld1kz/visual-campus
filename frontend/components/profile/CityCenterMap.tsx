@@ -21,6 +21,9 @@ export function CityCenterMap({ university }: Props) {
     let cancelled = false;
     import("maplibre-gl").then((maplibregl) => {
       if (cancelled || !container.current) return;
+      // Next bundles maplibre without an http import.meta.url, so its worker URL resolves to the page itself and
+      // tiles never load. The worker files are copied to public/maplibre by the postinstall script.
+      maplibregl.setWorkerUrl(`${window.location.origin}/maplibre/maplibre-gl-worker.mjs`);
       const line: [number, number][] = route?.geometry.length
         ? (route.geometry as [number, number][])
         : [[lng, lat], [center.lng, center.lat]];
@@ -32,7 +35,7 @@ export function CityCenterMap({ university }: Props) {
         container: container.current,
         style: STYLE_URL,
         bounds,
-        fitBoundsOptions: { padding: 28 },
+        fitBoundsOptions: { padding: { top: 44, bottom: 24, left: 32, right: 32 } },  // pins point down: room on top
         interactive: false,
         attributionControl: { compact: true },
       });
@@ -60,5 +63,5 @@ export function CityCenterMap({ university }: Props) {
     };
   }, [lat, lng, center, route]);
 
-  return <div ref={container} className="h-[150px] overflow-hidden rounded-[18px] bg-surface-2" />;
+  return <div ref={container} className="h-[190px] overflow-hidden rounded-[18px] bg-surface-2" />;
 }

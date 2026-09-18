@@ -49,7 +49,7 @@ export function AboutSection({ profile, onOpenMap }: Props) {
         {university.city_center && university.lat != null ? (
           <CityCenterMap university={university} />
         ) : (
-          <div className="ph-grid h-[150px] rounded-[18px] [--g:20px]" />
+          <div className="ph-grid h-[190px] rounded-[18px] [--g:20px]" />
         )}
         <div className="pt-[9px] text-[12.5px] text-ink-3">
           <div className="mb-1 font-medium text-ink-2">
