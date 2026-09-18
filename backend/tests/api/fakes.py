@@ -36,6 +36,7 @@ def raw(pid: str, source: str = "wikimedia_commons", **over) -> RawImage:
         source_domain="commons.wikimedia.org", full_url=f"https://upload.wikimedia.org/{pid}.jpg",
         title=f"File:Korea University {pid}.jpg", matched_category="Korea University", found_by="category",
         author="Jane", license="CC BY-SA 4.0", lat=37.5895, lng=127.032,
+        vision_checked=True,
     )
     return RawImage(**{**base, **over})
 
@@ -86,8 +87,12 @@ def fake(monkeypatch):
     async def add_places(client, uni, lang):
         return None
 
+    async def discover_campus_subjects(client, uni, bbox=None):
+        return []
+
     monkeypatch.setattr(orchestrator, "get_university", get_university)
     monkeypatch.setattr(orchestrator, "add_places", add_places)
+    monkeypatch.setattr(orchestrator, "discover_campus_subjects", discover_campus_subjects)
     monkeypatch.setattr(campus_router, "get_university", get_university)
     monkeypatch.setattr(osm, "find_campus", find_campus)
     monkeypatch.setattr(orchestrator, "wikipedia_summary", wiki)
@@ -96,6 +101,8 @@ def fake(monkeypatch):
         "flickr": collector("flickr", status="skipped", detail="no FLICKR_API_KEY"),
         "mapillary": collector("mapillary", status="skipped", detail="no MAPILLARY_TOKEN"),
         "official_site": collector("official_site"),
+        "openverse": collector("openverse"),
+        "web_search": collector("web_search", status="skipped", detail="no BRAVE_SEARCH_API_KEY"),
     })
     yield {"state": state, "calls": calls, "set": lambda name, fn: orchestrator.PHOTO_COLLECTORS.__setitem__(name, fn)}
     cache.clear()

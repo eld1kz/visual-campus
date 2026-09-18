@@ -5,13 +5,15 @@ not verified live (no key available).
 """
 
 import re
-from datetime import datetime, timezone
 
 import httpx
 
 from app.config import settings
 from app.models import RawImage, SourceResult
-from app.services.sources.base import MIN_SIDE_PX, Batches, Deadline, OnBatch, Skip, SourceQuery, query_bbox, run_collector
+from app.services.pipeline.dates import normalize_date, text_year, unix_date
+from app.services.sources.base import (
+    MIN_SIDE_PX, Batches, Deadline, OnBatch, Skip, SourceQuery, query_bbox, request_with_retry, run_collector,
+)
 
 FLICKR_REST = "https://api.flickr.com/services/rest/"
 PER_PAGE = 250
@@ -60,11 +62,11 @@ def parse_photo(item: dict) -> RawImage | None:
     lat, lng = _float(item.get("latitude")), _float(item.get("longitude"))
     if lat == 0 and lng == 0:  # Flickr returns 0/0 for "no geo"
         lat = lng = None
-    published = None
-    if item.get("datetaken") and str(item.get("datetakenunknown", "0")) != "1":
-        published = str(item["datetaken"])[:10]
-    elif item.get("dateupload"):
-        published = datetime.fromtimestamp(int(item["dateupload"]), tz=timezone.utc).date().isoformat()
+    uploaded = unix_date(item.get("dateupload"))
+    taken = normalize_date(str(item.get("datetaken", ""))[:10])
+    # Flickr may synthesize datetaken from upload time when EXIF is absent. Equal values are upload-only.
+    if str(item.get("datetakenunknown", "0")) == "1" or taken == uploaded:
+        taken = None
     description = item.get("description")
     if isinstance(description, dict):
         description = description.get("_content", "")
@@ -84,7 +86,10 @@ def parse_photo(item: dict) -> RawImage | None:
         author=item.get("ownername") or None,
         license=license_[0],
         license_url=license_[1],
-        published_at=published,
+        date_taken=taken,
+        date_uploaded=uploaded,
+        date_source="source_metadata" if taken else "upload_only" if uploaded else "unknown",
+        date_hint_year=text_year(item.get("title") or "", description or ""),
         lat=lat,
         lng=lng,
         width=int(width) if width else None,
@@ -99,24 +104,33 @@ async def collect(query: SourceQuery, client: httpx.AsyncClient, on_batch: OnBat
         bbox = query_bbox(query)
         if bbox is None:
             raise Skip("no coordinates for a bbox")
-        for page in range(1, MAX_PAGES + 1):
-            resp = await client.get(FLICKR_REST, timeout=deadline.left(), params={
-                "method": "flickr.photos.search", "api_key": settings.flickr_api_key,
-                "bbox": ",".join(f"{v:.6f}" for v in bbox), "license": ",".join(LICENSES),
-                "content_type": 1,"media": "photos", "has_geo": 1, "extras": EXTRAS,
-                "per_page": PER_PAGE, "page": page, "format": "json", "nojsoncallback": 1,
-            })
-            resp.raise_for_status()
-            data = resp.json()
-            if data.get("stat") != "ok":
-                raise RuntimeError(f"Flickr {data.get('code')}: {data.get('message')}")
-            photos = data.get("photos", {})
-            for item in photos.get("photo", []):
-                if raw := parse_photo(item):
-                    acc[raw.id] = raw
-            acc.flush()
-            if page >= int(photos.get("pages") or 0):
-                break
+        async def search(recent: bool) -> None:
+            for page in range(1, MAX_PAGES + 1):
+                params = {
+                    "method": "flickr.photos.search", "api_key": settings.flickr_api_key,
+                    "bbox": ",".join(f"{v:.6f}" for v in bbox), "license": ",".join(LICENSES),
+                    "content_type": 1, "media": "photos", "has_geo": 1, "extras": EXTRAS,
+                    "sort": "date-taken-desc", "per_page": PER_PAGE, "page": page,
+                    "format": "json", "nojsoncallback": 1,
+                }
+                if recent:
+                    params["min_taken_date"] = "2024-01-01"
+                resp = await request_with_retry(client, "GET", FLICKR_REST, deadline, "flickr", 2, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+                if data.get("stat") != "ok":
+                    raise RuntimeError(f"Flickr {data.get('code')}: {data.get('message')}")
+                photos = data.get("photos", {})
+                for item in photos.get("photo", []):
+                    if raw := parse_photo(item):
+                        acc[raw.id] = raw
+                acc.flush()
+                if page >= int(photos.get("pages") or 0):
+                    break
+
+        await search(recent=True)
+        if len(acc) < 15:
+            await search(recent=False)
         return None
 
     return await run_collector("flickr", work, on_batch=on_batch)

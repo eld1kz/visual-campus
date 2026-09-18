@@ -23,6 +23,8 @@ RESOLVE_MIN_GAP = 0.1
 # Below this the best candidate only shares generic words ("Technical University of …"): say not found.
 NOT_FOUND_BELOW_SCORE = 0.55
 SAME_PLACE_KM = 15
+RESOLVE_TTL_S = 24 * 3600
+_RESOLVE_CACHE: dict[str, tuple[float, ResolveResponse]] = {}
 
 
 class AllSourcesFailed(Exception):
@@ -154,6 +156,10 @@ async def _run_source(name: str, coro) -> tuple[SourceStatus, object]:
 
 async def resolve(query: str) -> ResolveResponse:
     started = time.perf_counter()
+    cache_key = normalize(query)
+    cached = _RESOLVE_CACHE.get(cache_key)
+    if cached and time.monotonic() - cached[0] < RESOLVE_TTL_S:
+        return cached[1].model_copy(update={"took_ms": round((time.perf_counter() - started) * 1000)})
     async with httpx.AsyncClient(
         timeout=settings.source_timeout_s,
         headers={"User-Agent": settings.user_agent},
@@ -182,7 +188,7 @@ async def resolve(query: str) -> ResolveResponse:
     status, ranked = decide(groups, query)
     candidates = [g.to_candidate() for g in ranked]
 
-    return ResolveResponse(
+    response = ResolveResponse(
         query=query,
         corrected_query=corrected,
         status=status,
@@ -191,3 +197,5 @@ async def resolve(query: str) -> ResolveResponse:
         sources_status=sources_status,
         took_ms=round((time.perf_counter() - started) * 1000),
     )
+    _RESOLVE_CACHE[cache_key] = (time.monotonic(), response)
+    return response

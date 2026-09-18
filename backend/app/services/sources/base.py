@@ -5,17 +5,30 @@ import logging
 import math
 import time
 from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 import httpx
 
-from app.models import RawImage, SourceName, SourceResult
+from app.models import BuildingType, RawImage, SourceName, SourceResult
 
 logger = logging.getLogger("visual_campus.sources")
 
 # Contract: ≤ 8 s per source. Stop a little earlier so an outer 8 s wrapper never cuts us first.
 SOURCE_BUDGET_S = 7.5
 MIN_SIDE_PX = 200  # smaller files are icons/thumbnails, not photos of a place
+
+
+@dataclass
+class SearchSubject:
+    qid: str | None
+    kind: str
+    names: list[str]
+    commons_category: str | None = None
+    image_titles: list[str] | None = None
+    lat: float | None = None
+    lng: float | None = None
+    building_type: BuildingType | None = None
 
 
 @dataclass
@@ -27,6 +40,54 @@ class SourceQuery:
     website: str | None
     commons_category: str | None
     bbox: tuple[float, float, float, float] | None = None  # (west, south, east, north)
+    polygon: list[list[float]] | None = None
+    geosearch_centers: list[tuple[float, float, int]] | None = None  # lat, lng, radius metres
+    subjects: list[SearchSubject] | None = None
+    category_targets: dict[str, int] | None = None
+
+
+_SOURCE_SEMAPHORES: dict[str, asyncio.Semaphore] = {}
+
+
+@asynccontextmanager
+async def source_slot(name: str, limit: int):
+    """A process-wide source concurrency limit shared by every profile build."""
+    semaphore = _SOURCE_SEMAPHORES.setdefault(name, asyncio.Semaphore(limit))
+    async with semaphore:
+        yield
+
+
+async def request_with_retry(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    deadline: "Deadline",
+    source: str,
+    limit: int,
+    **kwargs,
+) -> httpx.Response:
+    """Bounded 429/5xx retry that honors Retry-After and the collector deadline."""
+    response: httpx.Response | None = None
+    for attempt in range(3):
+        try:
+            async with source_slot(source, limit):
+                response = await client.request(method, url, timeout=deadline.left(), **kwargs)
+        except httpx.TransportError:
+            if attempt == 2:
+                raise
+            await asyncio.sleep(0.2 * (2 ** attempt))
+            continue
+        if response.status_code != 429 and response.status_code < 500:
+            return response
+        if attempt == 2:
+            return response
+        retry_after = response.headers.get("retry-after", "")
+        try:
+            delay = min(float(retry_after), 2.0)
+        except ValueError:
+            delay = 0.2 * (2 ** attempt)
+        await asyncio.sleep(min(delay, max(0.0, deadline.end - time.monotonic() - 0.25)))
+    return response  # pragma: no cover
 
 
 class Skip(Exception):
@@ -51,9 +112,18 @@ def point_bbox(lat: float, lng: float, half_km: float) -> tuple[float, float, fl
     return (lng - dlng, lat - dlat, lng + dlng, lat + dlat)
 
 
+def padded_bbox(bbox: tuple[float, float, float, float], pad_m: float = 250) -> tuple[float, float, float, float]:
+    """Expand a campus bbox a little so street-level photos on bordering roads are still considered."""
+    west, south, east, north = bbox
+    lat = (south + north) / 2
+    dlat = (pad_m / 1000) / 111.32
+    dlng = (pad_m / 1000) / (111.32 * max(math.cos(math.radians(lat)), 0.01))
+    return (west - dlng, south - dlat, east + dlng, north + dlat)
+
+
 def query_bbox(query: SourceQuery, half_km: float = 0.6) -> tuple[float, float, float, float] | None:
     if query.bbox:
-        return query.bbox
+        return padded_bbox(query.bbox)
     if query.lat is not None and query.lng is not None:
         return point_bbox(query.lat, query.lng, half_km)
     return None

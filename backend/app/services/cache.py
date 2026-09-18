@@ -8,7 +8,7 @@ import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-from app.models import CampusShape, ProfileResponse
+from app.models import CampusShape, ProfileResponse, SourceResult
 
 PROFILE_TTL_S = 30 * 60
 PARTIAL_PROFILE_TTL_S = 5 * 60
@@ -80,6 +80,7 @@ class _Ttl:
 
 profiles = _Ttl()  # (qid, lang) -> CachedProfile
 shapes = _Ttl()  # qid -> CampusShape
+source_results = _Ttl()  # (source, qid, bbox/category/site) -> SourceResult
 inflight: dict[tuple[str, str], object] = {}  # (qid, lang) -> orchestrator.ProfileBuild
 
 
@@ -104,7 +105,23 @@ def put_shape(qid: str, shape: CampusShape, complete: bool) -> None:
     shapes.put(qid, shape, SHAPE_TTL_S if complete else PARTIAL_SHAPE_TTL_S)
 
 
+def source_key(name: str, query) -> tuple:
+    return name, query.wikidata_id, query.bbox, query.commons_category, query.website
+
+
+def get_source(name: str, query) -> SourceResult | None:
+    return source_results.get(source_key(name, query))
+
+
+def put_source(name: str, query, result: SourceResult) -> None:
+    if result.status != "ok":
+        return
+    ttl = 3600 if name == "mapillary" else 6 * 3600
+    source_results.put(source_key(name, query), result, ttl)
+
+
 def clear() -> None:
     profiles.clear()
     shapes.clear()
+    source_results.clear()
     inflight.clear()

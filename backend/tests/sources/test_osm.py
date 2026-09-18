@@ -28,11 +28,14 @@ def test_pick_campus_prefers_wikidata_and_handles_site_relation():
 
 def test_building_type_follows_contract_table():
     assert osm.building_type({"building": "university"}) == "academic"
+    assert osm.building_type({"building:use": "education"}) == "academic"
     assert osm.building_type({"building": "dormitory"}) == "dorm"
+    assert osm.building_type({"building": "yes", "name": "Student Residence Hall"}) == "dorm"
     assert osm.building_type({"amenity": "library", "building": "yes"}) == "library"
     assert osm.building_type({"building": "library"}) == "other"
-    assert osm.building_type({"leisure": "sports_centre"}) == "sport"
+    assert osm.building_type({"leisure": "fitness_centre"}) == "sport"
     assert osm.building_type({"amenity": "research_institute"}) == "lab"
+    assert osm.building_type({"office": "research"}) == "lab"
     assert osm.building_type({"amenity": "cafe", "building": "yes"}) == "food"
     assert osm.building_type({"building": "yes"}) == "other"
 
@@ -45,12 +48,15 @@ def test_parse_buildings_inside_flag_height_levels_and_far_ones_dropped():
         {"type": "way", "id": 2, "tags": {"building": "yes"}, "geometry": ring(0.0104, 0.005, 0.0105, 0.0051)},
         {"type": "way", "id": 3, "tags": {"building": "yes"}, "geometry": ring(0.05, 0.05, 0.051, 0.051)},
         {"type": "way", "id": 4, "tags": {"highway": "path"}, "geometry": ring(0.002, 0.002, 0.003, 0.003)},
+        {"type": "way", "id": 5, "tags": {"amenity": "library", "name": "Central Library"},
+         "geometry": ring(0.004, 0.004, 0.005, 0.005)},
     ]
     buildings = {b.id: b for b in osm.parse_buildings(elements, campus)}
-    assert set(buildings) == {"osm-way-1", "osm-way-2"}
+    assert set(buildings) == {"osm-way-1", "osm-way-2", "osm-way-5"}
     main = buildings["osm-way-1"]
     assert (main.name, main.type, main.height_m, main.levels, main.inside_campus) == ("Main", "academic", 22.5, 5, True)
     assert buildings["osm-way-2"].inside_campus is False and buildings["osm-way-2"].height_m is None
+    assert buildings["osm-way-5"].type == "library"
 
 
 def test_find_campus_nominatim_then_buildings_from_second_mirror():

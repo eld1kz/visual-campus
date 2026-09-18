@@ -13,8 +13,13 @@ LOCAL_FRONTEND = "http://localhost:3000"
 class Settings:
     flickr_api_key: str = os.getenv("FLICKR_API_KEY", "")
     mapillary_token: str = os.getenv("MAPILLARY_TOKEN", "")
+    openverse_client_id: str = os.getenv("OPENVERSE_CLIENT_ID", "")
+    openverse_client_secret: str = os.getenv("OPENVERSE_CLIENT_SECRET", "")
+    brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
     kakao_api_key: str = os.getenv("KAKAO_API_KEY", "")
     llm_api_key: str = os.getenv("LLM_API_KEY", "")
+    vision_enabled: bool = os.getenv("VISION_ENABLED", "1").lower() not in ("0", "false", "no")
+    vision_max_candidates: int = int(os.getenv("VISION_MAX_CANDIDATES", "140"))
     frontend_url: str = os.getenv("FRONTEND_URL", "")
     source_timeout_s: float = float(os.getenv("SOURCE_TIMEOUT_S", "5"))
     user_agent: str = "VisualCampus/0.1 (LOCUS hackathon; https://github.com/eld1kz/visual-campus)"

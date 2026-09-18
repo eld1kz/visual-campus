@@ -19,7 +19,7 @@ def test_repeat_request_replays_from_cache(fake):
     assert fake["calls"]["wikidata"] == 1
     assert b[-1][0] == "done" and b[-1][1]["cached"] is True
     assert b[-1][1]["stats"] == a[-1][1]["stats"] and b[-1][1]["partial"] == a[-1][1]["partial"]
-    assert all(d["status"] == "pending" for _, d in b[:7])
+    assert all(d["status"] == "pending" for _, d in b[:len(orchestrator.SOURCE_NAMES)])
     final_a = {d["id"]: d for e, d in a if e == "photo"}
     assert {d["id"]: d for e, d in b if e == "photo"} == final_a
     assert [d for e, d in b if e == "summary"] == [d for e, d in a if e == "summary"]

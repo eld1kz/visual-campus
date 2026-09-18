@@ -8,6 +8,7 @@ import inspect
 import logging
 import time
 from datetime import date
+from dataclasses import replace
 
 import httpx
 from shapely.geometry import Polygon
@@ -18,12 +19,14 @@ from app.models import (
     RawImage, SourceResult, Summary,
 )
 from app.services import cache
-from app.services.pipeline import CampusContext, Deduplicator, score
-from app.services.sources import commons, flickr, mapillary, official_site, osm, run_source
+from app.services.pipeline import CampusContext, Deduplicator, batch_vision_check, score
+from app.services.pipeline.ranking import select_targets
+from app.services.query_planner import build_query_plan
+from app.services.sources import commons, flickr, mapillary, official_site, openverse, osm, run_source, web_search
 from app.services.sources.base import SourceQuery
 from app.services.sources.geo import distance_m
 from app.services.summary import SourceText, build_summary, extract_summary
-from app.services.wikidata import UniversityRecord, add_places, get_university
+from app.services.wikidata import UniversityRecord, add_places, discover_campus_subjects, get_university
 from app.services.wikipedia import summary as wikipedia_summary
 
 logger = logging.getLogger("visual_campus.orchestrator")
@@ -34,15 +37,19 @@ WIKIDATA_TIMEOUT_S = 8.0
 SOURCE_TIMEOUT_S = 8.0  # outer guard; collectors stop themselves at 7.5 s
 WIKIPEDIA_TIMEOUT_S = 6.0
 HTTP_TIMEOUT_S = 8.0
+SHAPE_WAIT_S = 1.5  # short head-start for OSM so bbox-based photo sources can use the campus outline on cold cache
 
 SOURCE_NAMES = [
     "wikidata", "openstreetmap", "wikimedia_commons", "wikipedia", "flickr", "mapillary", "official_site",
+    "openverse", "web_search",
 ]
 PHOTO_COLLECTORS = {
     "wikimedia_commons": commons.collect,
     "flickr": flickr.collect,
     "mapillary": mapillary.collect,
     "official_site": official_site.collect,
+    "openverse": openverse.collect,
+    "web_search": web_search.collect,
 }
 
 # ---------- Decisions waiting for the user: (a) and (b) ----------
@@ -150,7 +157,7 @@ def replay_events(cached: cache.CachedProfile) -> list[tuple[str, dict]]:
     events += [("photo", photo.model_dump()) for photo in p.photos]
     events.append(("summary", p.summary.model_dump()))
     done = ProfileDone(university=p.university, stats=p.stats, generated_in_ms=p.generated_in_ms,
-                       cached=True, partial=cached.partial)
+                       cached=True, partial=cached.partial, photo_ids=[photo.id for photo in p.photos])
     events.append(("done", done.model_dump()))
     return events
 
@@ -244,14 +251,17 @@ class ProfileBuild:
         names = search_names(uni)
         places_task = self._spawn(self._places(uni, client))  # city centre is only needed for `done`
         shape = cache.get_shape(self.qid)
+        try:
+            discovered = await asyncio.wait_for(
+                discover_campus_subjects(client, uni, shape_bbox(shape)), timeout=min(0.6, max(self._left(), 0.1))
+            )
+        except (asyncio.TimeoutError, httpx.HTTPError, ValueError):
+            discovered = []
         self.ctx = CampusContext(
             names=names, lat=uni.lat, lng=uni.lng, polygon=None, buildings=[],
             official_domains=official_domains(uni.website), today=date.today(), lang=self.lang,
         )
-        query = SourceQuery(
-            wikidata_id=self.qid, names=names, lat=uni.lat, lng=uni.lng, website=uni.website,
-            commons_category=uni.commons_category, bbox=shape_bbox(shape),
-        )
+        query = build_query_plan(uni, shape, discovered)
         sources_started = time.perf_counter()
         tasks: dict[str, asyncio.Task] = {}
         if shape is not None:
@@ -259,9 +269,20 @@ class ProfileBuild:
             self._finish(SourceResult(name="openstreetmap", status="ok", took_ms=0, detail="cached shape"))
         else:
             tasks["openstreetmap"] = self._spawn(self._guard("openstreetmap", self._osm(query, client)))
+        deferred = {"flickr", "mapillary", "openverse", "web_search"}
+        if not query.commons_category:
+            deferred.add("wikimedia_commons")
         for name, collect in PHOTO_COLLECTORS.items():
+            if name in deferred:
+                continue
             tasks[name] = self._spawn(self._guard(name, self._photos(name, collect, query, client)))
         tasks["wikipedia"] = self._spawn(self._guard("wikipedia", self._wikipedia(uni, client)))
+        if deferred:
+            await self._wait_for_shape(tasks.get("openstreetmap"))
+            photo_query = build_query_plan(uni, self.shape, discovered) if self.shape else query
+            for name in deferred:
+                if name in PHOTO_COLLECTORS:
+                    tasks[name] = self._spawn(self._guard(name, self._photos(name, PHOTO_COLLECTORS[name], photo_query, client)))
         summary_task = self._spawn(self._summary(tasks, client))
 
         _, pending = await asyncio.wait([*tasks.values(), summary_task], timeout=max(self._left(), 0))
@@ -273,6 +294,9 @@ class ProfileBuild:
             for name, task in tasks.items():
                 if task in pending:
                     self._finish(SourceResult(name=name, status="timeout", took_ms=_ms(sources_started)))
+
+        if self._left() > 1.5:
+            await self._vision(client)
 
         if self._hash_tasks:
             _, hash_pending = await asyncio.wait(self._hash_tasks, timeout=max(self._left(), 0))
@@ -310,6 +334,14 @@ class ProfileBuild:
             logger.exception("Source %s crashed in the orchestrator", name)
             self._finish(SourceResult(name=name, status="error", took_ms=_ms(started), detail=repr(exc)))
 
+    async def _wait_for_shape(self, task: asyncio.Task | None) -> None:
+        """Give OSM a brief chance to provide a campus bbox before bbox-only photo APIs start."""
+        if self.shape is not None or task is None or task.done():
+            return
+        until = time.monotonic() + min(SHAPE_WAIT_S, max(self._left(), 0))
+        while self.shape is None and not task.done() and time.monotonic() < until:
+            await asyncio.sleep(0.05)
+
     async def _osm(self, query: SourceQuery, client: httpx.AsyncClient) -> None:
         started = time.perf_counter()
         try:
@@ -325,6 +357,12 @@ class ProfileBuild:
         """Photos are scored and sent batch by batch as the collector hands them out; the result gives the status."""
         started = time.perf_counter()
 
+        cached = cache.get_source(name, query)
+        if cached is not None:
+            self._ingest(cached.images, client)
+            self._finish(cached.model_copy(update={"took_ms": 0, "detail": "cached source response"}))
+            return
+
         def on_batch(raws: list[RawImage]) -> None:
             self._ingest(raws, client)
 
@@ -335,6 +373,7 @@ class ProfileBuild:
         except asyncio.TimeoutError:  # batches that already arrived stay in the profile
             result = SourceResult(name=name, status="timeout", took_ms=_ms(started))
         self._ingest(result.images, client)  # no-op for images that came in batches
+        cache.put_source(name, query, result)
         self._finish(result)
 
     async def _hash(self, client: httpx.AsyncClient) -> None:
@@ -349,6 +388,28 @@ class ProfileBuild:
                 result = self.results.get(name)
                 if result is not None and self._count(name) != self.counts.get(name):
                     self._finish(result)
+
+    async def _vision(self, client: httpx.AsyncClient) -> None:
+        """Check the candidates most likely to be shown first, then rescore them in one refresh."""
+        prioritized = sorted(
+            ((raw, photo) for photo, raw in self.scored.values() if not raw.vision_checked),
+            key=lambda pair: (pair[1].tier != "unconfirmed", pair[1].confidence, pair[1].freshness == "2024_plus"),
+            reverse=True,
+        )
+        try:
+            updated = await batch_vision_check(prioritized, client, budget_s=min(12.0, max(0.0, self._left())))
+        except Exception:  # missing model/runtime failure leaves the explicit unchecked cap in place
+            logger.exception("Visual check failed for %s", self.qid)
+            return
+        if not updated:
+            return
+        for photo_id, raw in updated.items():
+            self.raws[photo_id] = raw
+            if photo := score(raw, self.ctx):
+                self.scored[photo_id] = (photo, raw)
+            else:
+                self.scored.pop(photo_id, None)
+        self._refresh()
 
     async def _wikipedia(self, uni: UniversityRecord, client: httpx.AsyncClient) -> None:
         started = time.perf_counter()
@@ -453,6 +514,15 @@ class ProfileBuild:
         self.results[result.name] = result
         count = self._count(result.name)
         self.counts[result.name] = count
+        source_raws = [raw for raw in self.raws.values() if raw.source == result.name]
+        hidden_vision = sum(raw.vision_checked and raw.vision_weight < 0 for raw in source_raws)
+        duplicate_or_unshown = max(0, len(source_raws) - count - hidden_vision)
+        logger.info(
+            "source_metrics source=%s candidates=%d shown=%d hidden_vision=%d hidden_duplicate_or_rank=%d "
+            "took_ms=%d status=%s error=%s",
+            result.name, len(result.images), count, hidden_vision, duplicate_or_unshown,
+            result.took_ms, result.status, result.detail or "",
+        )
         self.log.emit(*status_event(result.name, result.status, count, result.took_ms))
 
     def _statuses(self) -> list[ProfileSourceStatus]:
@@ -462,6 +532,12 @@ class ProfileBuild:
         ]
 
     def _done(self, uni: UniversityRecord) -> None:
+        self.final = select_targets(self.final)
+        for name, result in self.results.items():
+            count = self._count(name)
+            if self.counts.get(name) != count:
+                self.counts[name] = count
+                self.log.emit(*status_event(name, result.status, count, result.took_ms))
         partial = is_partial(list(self.results.values()), self.deadline_hit)
         university = to_university(uni, self.shape)
         stats = compute_stats(self.final)
@@ -471,7 +547,10 @@ class ProfileBuild:
             summary=self.summary, stats=stats, photos=self.final,
         )
         cache.put_profile(self.qid, self.lang, profile, partial)
-        done = ProfileDone(university=university, stats=stats, generated_in_ms=generated, cached=False, partial=partial)
+        done = ProfileDone(
+            university=university, stats=stats, generated_in_ms=generated, cached=False, partial=partial,
+            photo_ids=[photo.id for photo in self.final],
+        )
         self.log.emit("done", done.model_dump())
 
 

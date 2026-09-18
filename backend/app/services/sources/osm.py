@@ -101,24 +101,38 @@ def campus_from_nominatim(items: list[dict], qid: str) -> Campus | None:
     return None
 
 
-# docs/CONTRACT.md §4: OSM values → Building.type, checked in this order.
+# docs/CONTRACT.md §4: OSM tags → Building.type, checked in this order.
 _TYPE_RULES: list[tuple[str, set[str]]] = [
-    ("dorm", {"dormitory"}),
+    ("dorm", {"dormitory", "residential", "apartments", "student_accommodation"}),
     ("library", {"library"}),
-    ("lab", {"laboratory", "research_institute"}),
-    ("sport", {"sports_centre", "stadium", "pitch"}),
-    ("food", {"restaurant", "cafe", "canteen", "food_court"}),
-    ("academic", {"university", "college", "school"}),
+    ("lab", {"laboratory", "research_institute", "research", "science", "industrial"}),
+    ("sport", {"sports_centre", "stadium", "pitch", "sports_hall", "gym", "fitness_centre", "swimming_pool"}),
+    ("food", {"restaurant", "cafe", "canteen", "food_court", "fast_food", "bar", "pub"}),
+    ("academic", {"university", "college", "school", "education", "classroom", "lecture_hall"}),
+]
+_NAME_HINTS: list[tuple[str, re.Pattern]] = [
+    ("dorm", re.compile(r"\bdorm|dormitory|residence hall|student residence|hostel\b", re.IGNORECASE)),
+    ("library", re.compile(r"\blibrary|biblioteca|bibliothek|도서관|図書館|图书馆\b", re.IGNORECASE)),
+    ("lab", re.compile(r"\blab(?:orator(?:y|ies))?|research|institute|science\b", re.IGNORECASE)),
+    ("sport", re.compile(r"\bgym|sport|stadium|athletic|fitness|pool\b", re.IGNORECASE)),
+    ("food", re.compile(r"\bcafeteria|canteen|cafe|restaurant|dining\b", re.IGNORECASE)),
 ]
 NEARBY_BUILDING_M = 100  # "around the campus": buildings this close to the polygon are kept
 
 
 def building_type(tags: dict) -> str:
-    values = {tags.get(k) for k in ("amenity", "building", "leisure", "building:use")} - {None}
+    values = {
+        tags.get(k)
+        for k in ("amenity", "building", "leisure", "building:use", "building:part", "office", "tourism")
+    } - {None}
     for kind, osm_values in _TYPE_RULES:
         if kind == "library" and tags.get("amenity") != "library":
             continue
         if values & osm_values:
+            return kind
+    name = " ".join(v for k, v in tags.items() if k == "name" or k.startswith("name:"))
+    for kind, pattern in _NAME_HINTS:
+        if pattern.search(name):
             return kind
     return "other"
 
@@ -140,7 +154,11 @@ def parse_buildings(elements: list[dict], campus: BaseGeometry | None) -> list[B
         tags = element.get("tags", {})
         if element.get("type") != "way" or element["id"] in seen:
             continue
-        if "building" not in tags and tags.get("leisure") not in ("sports_centre", "stadium", "pitch"):
+        if (
+            "building" not in tags
+            and tags.get("amenity") not in {"library", "restaurant", "cafe", "canteen", "food_court"}
+            and tags.get("leisure") not in ("sports_centre", "stadium", "pitch", "fitness_centre", "swimming_pool")
+        ):
             continue
         geometry = _geometry(element)
         if geometry is None or geometry.is_empty or not geometry.is_valid:
@@ -240,7 +258,8 @@ def _campus_query(qid: str, lat: float | None, lng: float | None, timeout_s: int
 out geom;
 (
   way["building"]{around};
-  way["leisure"~"^(sports_centre|stadium|pitch)$"]{around};
+  way["amenity"~"^(library|restaurant|cafe|canteen|food_court)$"]{around};
+  way["leisure"~"^(sports_centre|stadium|pitch|fitness_centre|swimming_pool)$"]{around};
 );
 out geom {MAX_BUILDINGS};"""
 
@@ -249,7 +268,8 @@ def _buildings_query(scope: str, timeout_s: int) -> str:
     return f"""[out:json][timeout:{timeout_s}];
 (
   way["building"]{scope};
-  way["leisure"~"^(sports_centre|stadium|pitch)$"]{scope};
+  way["amenity"~"^(library|restaurant|cafe|canteen|food_court)$"]{scope};
+  way["leisure"~"^(sports_centre|stadium|pitch|fitness_centre|swimming_pool)$"]{scope};
 );
 out geom {MAX_BUILDINGS};"""
 

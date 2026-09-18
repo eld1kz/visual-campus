@@ -2,16 +2,21 @@
 
 import asyncio
 import re
+import time
 from dataclasses import dataclass, field
 
 import httpx
 
 from app.services.hits import SourceHit
+from app.services.sources.base import source_slot
 from app.services.text import is_cyrillic
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
+WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 WIKIPEDIA_API = "https://{lang}.wikipedia.org/w/api.php"
 SEARCH_LIMIT = 10
+ENTITY_TTL_S = 24 * 3600
+_ENTITY_CACHE: dict[str, tuple[float, dict]] = {}
 
 P_COUNTRY, P_LOCATED_IN, P_COORDS = "P17", "P131", "P625"
 P_WEBSITE, P_COMMONS_CATEGORY, P_ROR = "P856", "P373", "P6782"
@@ -45,7 +50,18 @@ def _label(entity: dict, lang: str = "en") -> str | None:
 
 
 async def _get(client: httpx.AsyncClient, url: str, params: dict) -> dict:
-    resp = await client.get(url, params={**params, "format": "json"})
+    for attempt in range(3):
+        try:
+            async with source_slot("wikidata", 3):
+                resp = await client.get(url, params={**params, "format": "json"})
+            if resp.status_code != 429 and resp.status_code < 500:
+                resp.raise_for_status()
+                return resp.json()
+        except httpx.TransportError:
+            if attempt == 2:
+                raise
+        if attempt < 2:
+            await asyncio.sleep(0.2 * (2 ** attempt))
     resp.raise_for_status()
     return resp.json()
 
@@ -74,11 +90,29 @@ async def _entities(
 ) -> dict[str, dict]:
     if not ids:
         return {}
-    params = {"action": "wbgetentities", "ids": "|".join(ids), "props": props}
+    use_cache = not isinstance(client._transport, httpx.MockTransport)
+    required = set(props.split("|"))
+    cached: dict[str, dict] = {}
+    if use_cache:
+        for qid in ids:
+            item = _ENTITY_CACHE.get(qid)
+            if item and time.monotonic() - item[0] < ENTITY_TTL_S and required.issubset(item[1].keys()):
+                cached[qid] = item[1]
+    missing = [qid for qid in ids if qid not in cached]
+    if not missing:
+        return cached
+    params = {"action": "wbgetentities", "ids": "|".join(missing), "props": props}
     if languages:
         params["languages"] = languages
     data = await _get(client, WIKIDATA_API, params)
-    return data.get("entities", {})
+    fetched = data.get("entities", {})
+    if use_cache:
+        for qid, entity in fetched.items():
+            previous = _ENTITY_CACHE.get(qid, (0, {}))[1]
+            merged = {**previous, **entity}
+            _ENTITY_CACHE[qid] = (time.monotonic(), merged)
+            fetched[qid] = merged
+    return {**cached, **fetched}
 
 
 def _is_education(entity: dict) -> bool:
@@ -183,6 +217,7 @@ class UniversityRecord:
     country: str | None
     wikipedia_titles: dict[str, str]
     city_center: Place | None
+    names_by_language: dict[str, str] = field(default_factory=dict)
     entity: dict = field(default_factory=dict, repr=False)
 
 
@@ -218,13 +253,7 @@ async def get_university(
     client: httpx.AsyncClient, qid: str, lang: str = "en", with_places: bool = True
 ) -> UniversityRecord | None:
     """with_places=False skips city/country labels and the city centre walk (~1.3 s); fill them later with add_places()."""
-    data = await _get(
-        client,
-        WIKIDATA_API,
-        # sitefilter: big universities have 200+ sitelinks; only these three are used.
-        {"action": "wbgetentities", "ids": qid, "props": "labels|aliases|claims|sitelinks", "sitefilter": "enwiki|ruwiki|kowiki"},
-    )
-    entity = data.get("entities", {}).get(qid)
+    entity = (await _entities(client, [qid], "labels|aliases|claims|sitelinks", languages=None)).get(qid)
     if not entity or "missing" in entity:
         return None
 
@@ -253,6 +282,7 @@ async def get_university(
             if code in ("enwiki", "ruwiki", "kowiki")
         },
         city_center=None,
+        names_by_language={code: value["value"] for code, value in entity.get("labels", {}).items()},
         entity=entity,
     )
     if with_places:
@@ -270,3 +300,75 @@ async def add_places(client: httpx.AsyncClient, uni: UniversityRecord, lang: str
     uni.city = _label(places[city_ids[0]], lang) if city_ids and city_ids[0] in places else None
     uni.country = _label(places[country_ids[0]], lang) if country_ids and country_ids[0] in places else None
     uni.city_center = city_center
+
+
+_COORD = re.compile(r"Point\((-?[\d.]+) (-?[\d.]+)\)")
+_BUILDING_TYPES = {
+    "Q41176": "academic",      # building
+    "Q3914": "academic",       # school
+    "Q11303": "academic",      # skyscraper (often named campus buildings)
+    "Q847950": "dorm",         # dormitory
+    "Q7075": "library",
+    "Q483110": "sport",        # stadium
+    "Q31855": "lab",           # research institute
+}
+
+
+async def discover_campus_subjects(
+    client: httpx.AsyncClient,
+    uni: UniversityRecord,
+    bbox: tuple[float, float, float, float] | None = None,
+) -> list[dict]:
+    """Direct P361 members plus coordinate-bearing nearby items; bbox filtering is repeated locally."""
+    if bbox is None or uni.lat is None or uni.lng is None:
+        around = ""
+    else:
+        around = f'''UNION {{ SERVICE wikibase:around {{
+          ?item wdt:P625 ?coord .
+          bd:serviceParam wikibase:center "Point({uni.lng} {uni.lat})"^^geo:wktLiteral ; wikibase:radius "3" .
+        }} }}'''
+    query = f'''SELECT DISTINCT ?item ?itemLabel ?coord ?image ?commons ?instance ?direct WHERE {{
+      {{ ?item wdt:P361 wd:{uni.wikidata_id} . BIND(true AS ?direct) }} {around}
+      OPTIONAL {{ ?item wdt:P625 ?coord }}
+      OPTIONAL {{ ?item wdt:P18 ?image }}
+      OPTIONAL {{ ?item wdt:P373 ?commons }}
+      OPTIONAL {{ ?item wdt:P31 ?instance }}
+      FILTER(BOUND(?image) || BOUND(?commons))
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,ko,ru,kk". }}
+    }} LIMIT 120'''
+    async with source_slot("wikidata", 3):
+        response = await client.get(WIKIDATA_SPARQL, params={"query": query, "format": "json"}, timeout=3.0)
+    response.raise_for_status()
+    grouped: dict[str, dict] = {}
+    for row in response.json().get("results", {}).get("bindings", []):
+        item_url = row.get("item", {}).get("value", "")
+        qid = item_url.rsplit("/", 1)[-1]
+        if not qid.startswith("Q"):
+            continue
+        lat = lng = None
+        if match := _COORD.search(row.get("coord", {}).get("value", "")):
+            lng, lat = float(match.group(1)), float(match.group(2))
+        direct = row.get("direct", {}).get("value") == "true"
+        inside = False
+        if bbox and lat is not None and lng is not None:
+            west, south, east, north = bbox
+            inside = west <= lng <= east and south <= lat <= north
+        if not direct and not inside:
+            continue
+        subject = grouped.setdefault(qid, {
+            "qid": qid, "kind": "building", "names": [], "commons_category": None,
+            "image_titles": [], "lat": lat, "lng": lng, "building_type": "other",
+        })
+        label = row.get("itemLabel", {}).get("value")
+        if label and label not in subject["names"]:
+            subject["names"].append(label)
+        if commons := row.get("commons", {}).get("value"):
+            subject["commons_category"] = commons
+        if image := row.get("image", {}).get("value"):
+            title = image.rsplit("/", 1)[-1].replace("_", " ")
+            if title not in subject["image_titles"]:
+                subject["image_titles"].append(title)
+        instance = row.get("instance", {}).get("value", "").rsplit("/", 1)[-1]
+        if instance in _BUILDING_TYPES:
+            subject["building_type"] = _BUILDING_TYPES[instance]
+    return list(grouped.values())[:20]

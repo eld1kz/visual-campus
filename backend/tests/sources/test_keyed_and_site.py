@@ -73,7 +73,8 @@ def test_mapillary_clamps_large_bbox():
 HOME = """<html><head><title>Korea University</title>
 <meta property="og:image" content="/img/campus.jpg"><meta content='https://cdn.korea.ac.kr/logo.svg' property='og:image'>
 <meta name="twitter:image" content="https://www.korea.ac.kr/img/campus.jpg"></head>
-<body><a href="/campus/life">Campus</a><a href="https://other.org/campus">x</a></body></html>"""
+<body><a href="/campus/life">Campus</a><a href="/library/main">Library</a>
+<a href="/research/labs">Labs</a><a href="https://other.org/campus">x</a></body></html>"""
 
 
 def test_official_site_og_images_and_campus_pages():
@@ -82,14 +83,24 @@ def test_official_site_og_images_and_campus_pages():
             return httpx.Response(200, headers={"content-type": "image/jpeg", "content-length": "250000"})
         if request.url.path == "/campus/life":
             return httpx.Response(200, headers={"content-type": "text/html"}, text='<meta property="og:image" content="/img/tour.jpg">')
+        if request.url.path == "/library/main":
+            return httpx.Response(200, headers={"content-type": "text/html"}, text='<meta property="og:image" content="/img/library.jpg">')
+        if request.url.path == "/research/labs":
+            return httpx.Response(200, headers={"content-type": "text/html"}, text='<meta property="og:image" content="/img/lab.jpg">')
         return httpx.Response(200, headers={"content-type": "text/html; charset=utf-8"}, text=HOME)
 
     result = run(official_site.collect, handler)
     assert result.status == "ok"
     urls = sorted(i.full_url for i in result.images)
-    assert urls == ["https://www.korea.ac.kr/img/campus.jpg", "https://www.korea.ac.kr/img/tour.jpg"]
+    assert urls == [
+        "https://www.korea.ac.kr/img/campus.jpg",
+        "https://www.korea.ac.kr/img/lab.jpg",
+        "https://www.korea.ac.kr/img/library.jpg",
+        "https://www.korea.ac.kr/img/tour.jpg",
+    ]
     image = next(i for i in result.images if i.full_url.endswith("campus.jpg"))
     assert image.is_official_site and image.found_by == "site" and image.license is None and image.author is None
+    assert image.title == "Korea University campus.jpg"
     assert image.id.startswith("site-") and len(image.id) == 17 and image.source_domain == "www.korea.ac.kr"
 
 

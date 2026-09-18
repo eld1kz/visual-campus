@@ -15,8 +15,8 @@ def test_stream_order_pending_first_done_last(fake):
     assert resp.headers["content-type"].startswith("text/event-stream")
     assert resp.headers["cache-control"] == "no-cache" and resp.headers["x-accel-buffering"] == "no"
     events = parse_sse(resp.text)
-    pending = events[:7]
-    assert [e for e, _ in pending] == ["source_status"] * 7
+    pending = events[:len(orchestrator.SOURCE_NAMES)]
+    assert [e for e, _ in pending] == ["source_status"] * len(orchestrator.SOURCE_NAMES)
     assert {d["name"] for _, d in pending} == set(orchestrator.SOURCE_NAMES)
     assert all(d["status"] == "pending" and d["took_ms"] is None for _, d in pending)
     assert events[-1][0] == "done" and [e for e, _ in events].count("done") == 1
@@ -126,6 +126,18 @@ def test_first_photo_is_sent_before_the_collector_finishes(fake):
     assert first_photo < flickr_done < commons_done
     assert final_statuses(events)["wikimedia_commons"]["count"] == 2
     assert events[-1][1]["stats"]["photos"] == 2
+
+
+def test_bbox_photo_sources_wait_briefly_for_campus_shape(fake):
+    seen = {}
+
+    async def flickr(query, client, on_batch=None):
+        seen["bbox"] = query.bbox
+        return SourceResult(name="flickr", status="skipped", took_ms=0, detail="no key")
+
+    fake["set"]("flickr", flickr)
+    parse_sse(run(get(f"/profile/{QID}?lang=en")).text)
+    assert seen["bbox"] == (127.028, 37.586, 127.037, 37.593)
 
 
 def test_repeated_batches_resend_a_photo_only_when_it_changed(fake):
