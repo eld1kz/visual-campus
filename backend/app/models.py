@@ -307,6 +307,7 @@ class RawImage(BaseModel):
     vision_weight: int = 0
     vision_veto: bool = Field(default=False, description="Model is confident by a wide margin: never above unconfirmed")
     vision_category: PhotoCategory | None = None
+    vision_source: Literal["openclip", "claude"] | None = None
     subject_id: str | None = None
     subject_name: str | None = None
     subject_kind: Literal["university", "building", "city"] | None = None

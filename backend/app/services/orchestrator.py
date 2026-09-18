@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.services import cache
 from app.services.pipeline import CampusContext, Deduplicator, batch_vision_check, score
+from app.services.pipeline.claude_vision import claude_vision_check
 from app.services.pipeline.ranking import select_targets
 from app.services.query_planner import build_query_plan
 from app.services.sources import commons, flickr, mapillary, official_site, openverse, osm, run_source, web_search
@@ -37,7 +38,8 @@ WIKIDATA_TIMEOUT_S = 8.0
 SOURCE_TIMEOUT_S = 8.0  # outer guard; collectors stop themselves at 7.5 s
 WIKIPEDIA_TIMEOUT_S = 6.0
 HTTP_TIMEOUT_S = 8.0
-SHAPE_WAIT_S = 1.5  # short head-start for OSM so bbox-based photo sources can use the campus outline on cold cache
+SHAPE_WAIT_S = 1.5
+CLAUDE_VISION_S = 14.0  # budget of the batched Claude check, which runs in parallel with OpenCLIP  # short head-start for OSM so bbox-based photo sources can use the campus outline on cold cache
 
 SOURCE_NAMES = [
     "wikidata", "openstreetmap", "wikimedia_commons", "wikipedia", "flickr", "mapillary", "official_site",
@@ -395,17 +397,31 @@ class ProfileBuild:
                     self._finish(result)
 
     async def _vision(self, client: httpx.AsyncClient) -> None:
-        """Check the candidates most likely to be shown first, then rescore them in one refresh."""
+        """OpenCLIP on the candidates most likely to be shown first, then Claude on the borderline ones; one refresh each."""
         prioritized = sorted(
             ((raw, photo) for photo, raw in self.scored.values() if not raw.vision_checked),
             key=lambda pair: (pair[1].tier != "unconfirmed", pair[1].confidence, pair[1].freshness == "2024_plus"),
             reverse=True,
         )
+        claude_task = None
+        if settings.llm_api_key and settings.claude_vision_max > 0 and self._left() > 3:
+            # Claude runs next to OpenCLIP (network vs local CPU); its verdicts are applied last and win.
+            items = [(raw, photo) for photo, raw in self.scored.values()]
+            claude_task = asyncio.create_task(claude_vision_check(
+                items, self.ctx.names[0], client, budget_s=min(CLAUDE_VISION_S, self._left() - 0.5),
+                limit=settings.claude_vision_max))
         try:
-            updated = await batch_vision_check(prioritized, client, budget_s=min(12.0, max(0.0, self._left())))
+            self._apply_vision(await batch_vision_check(prioritized, client, budget_s=min(12.0, max(0.0, self._left()))))
         except Exception:  # missing model/runtime failure leaves the explicit unchecked cap in place
             logger.exception("Visual check failed for %s", self.qid)
+        if claude_task is None:
             return
+        try:
+            self._apply_vision(await claude_task)
+        except Exception:
+            logger.exception("Claude visual check failed for %s", self.qid)
+
+    def _apply_vision(self, updated: dict[str, RawImage]) -> None:
         if not updated:
             return
         for photo_id, raw in updated.items():

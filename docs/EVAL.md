@@ -108,3 +108,23 @@ The slowest profile (Nazarbayev) spends the time on 163 candidates: pHash groupi
   works, but building-level evidence is missing.
 - Official sites: cam.ac.uk answers 403, kaznu.kz has a certificate chain the local Python cannot verify.
 - Anonymous Openverse is limited to 20 results per request and ~1 request/s; it carries no capture dates.
+
+## Run with Mapillary, Brave and the Claude visual check (2026-09-19, later)
+
+Keys: Mapillary, Brave, Anthropic (`LLM_API_KEY`). Flickr and Openverse credentials not set.
+Reliable targets raised to `campus=60,dorms=20,classrooms=25,libraries=20,city=20` (was 12/6/4/4/4: every profile
+hit the campus cap of 12, and reliable photos over the cap were dropped). Claude (`claude-opus-5`, low effort)
+checks up to 80 borderline photos per profile in batches of 5, 16 requests in parallel, next to OpenCLIP.
+
+| University | Candidates | Final V / L / U | Reliable before → after | Reliable 2024+ | Claude checked | Done |
+|---|---:|---:|---:|---:|---:|---:|
+| Nazarbayev University | 490 | 30 / 34 / 300 | 17 → 64 | 0 | 80 in 6.9 s | 23.5 s |
+| KAIST | 416 | 65 / 5 / 68 | 20 → 70 | 56 | 80 in 8.0 s | 20.3 s |
+| Al-Farabi KazNU | 198 | 3 / 58 / 115 | 12 → 61 | 1 | 20 in 7.2 s | 15.4 s |
+| Korea University | 391 | 6 / 54 / 306 | 17 → 60 | 0 | 0 (credit balance too low) | 20.2 s |
+| University of Cambridge | 394 | 10 / 75 / 241 | 20 → 85 | 14 | 0 (credit balance too low) | 17.8 s |
+
+"Reliable before" is the previous run with the same keys, old targets and no working Claude check. The last two
+profiles ran after the Anthropic account ran out of credits: every Claude batch returned HTTP 400 and the profile
+was built on the OpenCLIP verdicts, as designed. In the earlier run where Claude worked for all five, Claude
+labelled most borderline Mapillary street views "not a campus place" and lifted 8–16 photos per profile to verified.

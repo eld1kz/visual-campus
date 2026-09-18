@@ -114,7 +114,7 @@ def _apply(raw: RawImage, result: Verdict) -> RawImage:
     label, weight, category, veto = result
     return raw.model_copy(update={
         "vision_checked": True, "vision_label": label, "vision_weight": weight,
-        "vision_veto": veto, "vision_category": category,
+        "vision_veto": veto, "vision_category": category, "vision_source": "openclip",
     })
 
 

@@ -243,6 +243,8 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
     content = content_evidence(raw, ctx)
     if raw.vision_checked and raw.vision_label:
         key = "vision_veto" if raw.vision_veto else f"vision_{raw.vision_label}"
+        if raw.vision_source == "claude":
+            key = f"claude_{key.removeprefix('vision_')}" if key != "vision_veto" else "claude_vision_veto"
         evidence.append(_ev("vision", t[key], raw.vision_weight))
     if content:
         evidence.append(content)
