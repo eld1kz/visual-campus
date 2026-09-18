@@ -120,7 +120,9 @@ data: <одна строка JSON>
 | `wikipedia` | тексты для резюме |
 | `flickr` | фото с CC-лицензиями в гео-рамке (нужен `FLICKR_API_KEY`) |
 | `mapillary` | уличные снимки (нужен `MAPILLARY_TOKEN`) |
+| `openverse` | CC/PD-фото из Openverse; `indexed_on` не считается датой фото |
 | `official_site` | `og:image` с официального сайта вуза |
+| `web_search` | запасной веб-поиск изображений (нужен `BRAVE_SEARCH_API_KEY`, не считается проверенным сам по себе) |
 
 ### `photo`
 
@@ -139,7 +141,13 @@ data: <одна строка JSON>
   "source_domain": "commons.wikimedia.org",
   "author": "Jane Doe",                // "unknown", если не указан
   "license": "CC BY-SA 4.0",           // "unknown", если источник не указывает
-  "published_at": "2019-05-02" | null, // дата съёмки, иначе дата публикации
+  "date_taken": "2019-05-02" | null,  // только дата создания/съёмки; точность источника сохраняется
+  "date_uploaded": "2020-01-02" | null, // только дата загрузки файла у источника
+  "date_source": "exif",               // "exif" | "source_metadata" | "structured_data" |
+                                           // "upload_only" | "text_hint" | "unknown"
+  "freshness": "older",               // "2024_plus" | "2020_2023" | "older" |
+                                           // "date_unknown" | "historic"
+  "vision_checked": true,
   "retrieved_at": "2026-09-17",        // когда мы получили данные
   "lat": 37.5891 | null,
   "lng": 127.0318 | null,
@@ -162,20 +170,30 @@ data: <одна строка JSON>
 | `text` | название вуза в заголовке/описании; официальный домен | + |
 | `vision` | результат визуальной проверки моделью | + или − |
 | `missing` | нет важного признака (геотега, лицензии) | − |
-| `date` | снимок старый — кампус мог измениться | − |
+| `date` | происхождение даты съёмки или только дата загрузки | 0 (на tier не влияет) |
 | `content` | похоже на людей/мероприятие/логотип, а не на место | − |
 
-`date` и `content` уже реализованы в `backend/app/services/evidence.py` и потому входят в контракт.
+`date` и `content` реализованы в `backend/app/services/pipeline/scoring.py` и потому входят в контракт.
 
 **Уровни и честная неопределённость:**
 
 - `confidence = clamp(40 + Σ weight, 0, 100)`.
 - `verified` — ≥ 80; `likely` — 60..79; `unconfirmed` — < 60.
 - Без положительных доказательств места (`geo`, `category`, `text`) фото не может подняться выше `unconfirmed`. Нет данных — низкая оценка, а не догадка.
-- `unconfirmed` отправляются клиенту; UI скрывает их по умолчанию.
+- Фото с `vision_checked=false` не может быть `verified`: максимум `likely`, а evidence содержит `Not visually checked (time limit)`.
+- Свежесть меняет только порядок и подпись. Она никогда не повышает и не понижает `tier`.
+- `unconfirmed` могут появиться как provisional SSE-события во время сбора, но финальный `done.photo_ids` их не включает;
+  клиент удаляет их из профиля и показывает для незаполненной категории «Недостаточно данных».
 - Логотипы, схемы, карты, скриншоты в профиль не попадают вовсе.
 
 **Дубли:** в профиль идёт одна копия — с наибольшим `confidence`; остальные попадают в её `duplicates`.
+
+**Даты:** `date_taken` никогда не содержит дату загрузки, индексации Openverse, публикации/изменения страницы,
+`sitemap lastmod` или `retrieved_at`. Допустимая точность: `YYYY`, `YYYY-MM`, `YYYY-MM-DD` или ISO 8601;
+недостающие компоненты не придумываются. Невалидные и будущие даты отбрасываются. Год только в заголовке/описании
+даёт `date_source=text_hint`, но `date_taken` остаётся `null`. Если известна только загрузка, UI пишет «uploaded …».
+`freshness` считается только по надёжному `date_taken`; upload-only остаётся `date_unknown`. Исторические фото скрыты
+по умолчанию отдельным переключателем.
 
 ### `summary`
 
@@ -198,7 +216,8 @@ data: <одна строка JSON>
   "stats": { "photos": 42, "verified": 20, "likely": 15, "hidden": 7, "duplicates": 5 },
   "generated_in_ms": 18400,
   "cached": false,
-  "partial": false
+  "partial": false,
+  "photo_ids": ["commons-12345678"] // финальный рейтинг; удалить provisional photo, которых здесь нет
 }
 ```
 
@@ -322,11 +341,19 @@ class RawImage(BaseModel):
     source_categories: list[str] = []   # категории Commons / теги Flickr, как есть
     matched_category: str | None = None # категория вуза, через которую нашли файл (Commons)
     matched_subcategory: bool = False   # True, если через подкатегорию, а не саму категорию
-    found_by: Literal["category", "geosearch", "bbox", "site", "text"]  # как нашли
+    found_by: Literal["category", "geosearch", "bbox", "site", "text", "depicts",
+                      "wikidata_image", "sitemap", "openverse"]  # как нашли
     author: str | None = None
     license: str | None = None     # короткое имя: "CC BY-SA 4.0", "CC0", …
     license_url: str | None = None
-    published_at: str | None = None  # ISO; дата съёмки, иначе дата публикации
+    date_taken: str | None = None
+    date_uploaded: str | None = None
+    date_source: Literal["exif", "source_metadata", "structured_data", "upload_only", "text_hint", "unknown"]
+    date_hint_year: int | None = None # слабая подсказка из текста; не показывается как дата съёмки
+    vision_checked: bool = False
+    subject_id: str | None = None
+    subject_name: str | None = None
+    subject_kind: Literal["university", "building", "city"] | None = None
     lat: float | None = None
     lng: float | None = None
     heading_deg: float | None = None
@@ -348,6 +375,10 @@ class SourceQuery:
     website: str | None
     commons_category: str | None
     bbox: tuple[float, float, float, float] | None  # (west, south, east, north), если известен полигон
+    polygon: list[list[float]] | None
+    geosearch_centers: list[tuple[float, float, int]] | None  # lat, lng, radius_m; покрытие всего полигона
+    subjects: list[SearchSubject] | None                    # университет, здания, город
+    category_targets: dict[str, int] | None                 # сумма по умолчанию 15
 
 class SourceResult(BaseModel):
     name: str                     # имя из таблицы §3
@@ -403,6 +434,9 @@ class Deduplicator:                  # состояние на один проф
 |---|---|---|
 | `FLICKR_API_KEY` | sources-agent | `flickr` → `skipped` |
 | `MAPILLARY_TOKEN` | sources-agent, map-agent (бэкенд `/campus`) | `mapillary` → `skipped`, панорамы не проверяются |
+| `OPENVERSE_CLIENT_ID`, `OPENVERSE_CLIENT_SECRET` | Openverse | анонимно: 20 результатов/запрос и низкий rate limit |
+| `VISION_ENABLED` | локальный OpenCLIP | `0`: фото остаются `vision_checked=false`, tier максимум `likely` |
+| `VISION_MAX_CANDIDATES` | локальный OpenCLIP | по умолчанию сначала проверяются 140 лучших кандидатов |
 | `KAKAO_API_KEY` | map-agent | Kakao не проверяется |
 | `LLM_API_KEY` | api-agent (резюме), verify-agent (vision), mascot-agent (чат) | резюме из Wikipedia без LLM; без vision; чат отвечает поиском по текстам или `dont_know` |
 | `SOURCE_TIMEOUT_S` | `/resolve` | 5 с |

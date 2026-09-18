@@ -28,6 +28,8 @@ PHASH_MAX_DISTANCE = 6  # of 64 bits
 HASH_CONCURRENCY = 4  # upload.wikimedia.org answers 429 to bursts
 HASH_REQUEST_TIMEOUT_S = 3.0
 HASH_BUDGET_S = 6.0  # total for all thumbnail downloads of one profile
+PHASH_CACHE_TTL_S = 7 * 86400
+_PHASH_CACHE: dict[str, tuple[float, imagehash.ImageHash]] = {}
 
 _COPY_SUFFIX = re.compile(r"\s*\((cropped|crop|edited|retouched|\d+)\)|\s*-\s*panoramio", re.IGNORECASE)
 _CAMERA_NAME = re.compile(r"^(img|dsc|dscn|dcim|pict|photo|image|p)\s*\d*$")
@@ -110,6 +112,12 @@ class Deduplicator:
 
     async def _hash_one(self, raw: RawImage, client: httpx.AsyncClient) -> None:
         async with self._semaphore:
+            cache_key = raw.sha1 or raw.thumb_url or raw.full_url
+            use_shared_cache = not isinstance(client._transport, httpx.MockTransport)
+            cached = _PHASH_CACHE.get(cache_key) if use_shared_cache else None
+            if cached and time.monotonic() - cached[0] < PHASH_CACHE_TTL_S:
+                self.set_hash(raw.id, cached[1])
+                return
             if self._throttled:
                 return
             try:
@@ -120,7 +128,10 @@ class Deduplicator:
                     self._throttled = True
                     return
                 response.raise_for_status()
-                self.set_hash(raw.id, await asyncio.to_thread(_phash, response.content))
+                value = await asyncio.to_thread(_phash, response.content)
+                if use_shared_cache:
+                    _PHASH_CACHE[cache_key] = (time.monotonic(), value)
+                self.set_hash(raw.id, value)
             except Exception:  # noqa: BLE001 — a missing hash must never break the profile
                 return
 

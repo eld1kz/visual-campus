@@ -13,7 +13,8 @@ _I = re.IGNORECASE
 # Not a photo of a place at all: symbols, maps, printed matter, artworks. Checked on title + description.
 NOT_A_PHOTO = re.compile(
     r"\blogo|emblem|\bseal\b|coat of arms|\bicons?\b|diagram|floor ?plan|\bmap of\b|\bchart\b|signature|screenshot|"
-    r"\bflyers?\b|\bleaflet|brochure|\bposters?\b|\bcovers?\b|\bdocument|certificate|diploma|\bstamps?\b|"
+    r"wordmark|masthead|nameplate|text-?only|typographic|newspaper title|"
+    r"\bflyers?\b|\bleaflet|brochure|\bposters?\b|\bcovers?\b|\bnewsletter|\bdocument|certificate|diploma|\bstamps?\b|"
     r"banknote|\bbook page|page of the book|\bscan(ned)?\b|magazine|newspaper|\bpainting|artwork|lithograph|"
     r"engraving|calligraph|manuscript|book-?plates?|ex libris|\bsymbol\b|\.(pdf|djvu|svg)$|"
     r"revista|peri[oó]dico|edici[oó]n \d|portada|cartel\b|affiche|couverture|plakat|urkunde|zertifikat|briefmarke|"
@@ -29,6 +30,7 @@ NOT_A_PHOTO = re.compile(
 NOT_A_PHOTO_CATEGORY = re.compile(
     r"^(logos?|maps?|diagrams?|posters?|flyers?|documents?|scans?|scanned|certificates?|diplomas?|stamps?|"
     r"banknotes?|book covers?|magazine covers?|covers?|coats? of arms|seals?|signatures?|screenshots?|paintings?|"
+    r"newspapers?|student newspapers?|periodicals?|publications?|mastheads?|wordmarks?|"
     r"micrographs?|microscop(y|ic) images|microscopy category images|"
     r"(atomic force|scanning electron|transmission electron|confocal) micro\w+|"
     r"non-photographic media)\b|\bmicrographs\b",
@@ -83,6 +85,12 @@ SPECIMEN = re.compile(
     _I,
 )
 SPECIMEN_CATEGORY = re.compile(r"^nature category images\b", _I)
+FOOD_CLOSEUP = re.compile(
+    r"\bpizza|sandwich|burger|cake|cookie|coffee|latte|meal|dish|snack|plate of|food tray|lunch\b|"
+    r"피자|샌드위치|커피|케이크|점심|음식|간식|"
+    r"пицц|сэндвич|бургер|кофе|торт|еда|обед|блюдо|тарелк",
+    _I,
+)
 # Commons categories that are about a person: "1920 births", "Chemists from South Korea", "Alumni of …".
 PERSON_CATEGORY = re.compile(
     r"\b\d{3,4}s? (births|deaths)\b|^(alumni|faculty|people|men|women|politicians|scientists|chemists|physicists|"
@@ -141,6 +149,10 @@ def is_specimen(raw: RawImage) -> bool:
     return _specimen(*_key(raw))
 
 
+def is_food_closeup(raw: RawImage) -> bool:
+    return _food_closeup(*_key(raw))
+
+
 @lru_cache(maxsize=TEXT_CACHE_SIZE)
 def _not_a_place(title: str, description: str, categories: tuple[str, ...]) -> bool:
     return bool(NOT_A_PHOTO.search(f"{title} {description}") or any(NOT_A_PHOTO_CATEGORY.search(c) for c in categories))
@@ -160,6 +172,11 @@ def _specimen(title: str, description: str, categories: tuple[str, ...]) -> bool
     return bool(
         SPECIMEN.search(" ".join([title, description, *categories])) or any(SPECIMEN_CATEGORY.search(c) for c in categories)
     )
+
+
+@lru_cache(maxsize=TEXT_CACHE_SIZE)
+def _food_closeup(title: str, description: str, categories: tuple[str, ...]) -> bool:
+    return bool(FOOD_CLOSEUP.search(" ".join([title, description, *categories])))
 
 
 @lru_cache(maxsize=TEXT_CACHE_SIZE)

@@ -37,6 +37,7 @@ def raw(**overrides) -> RawImage:
         author="Someone",
         license="CC BY-SA 4.0",
         published_at="2024-05-01",
+        vision_checked=True,
         sha1="aaa",
     )
     return RawImage(**{**base, **overrides})

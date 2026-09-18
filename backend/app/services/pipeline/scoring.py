@@ -13,6 +13,7 @@ from shapely.strtree import STRtree
 
 from app.models import Building, Evidence, Photo, RawImage
 from app.services.pipeline import categories as cat
+from app.services.pipeline.dates import date_evidence_label, effective_date_source, freshness
 from app.services.pipeline.labels import fmt_distance, labels
 from app.services.text import normalize
 
@@ -20,7 +21,6 @@ BASE_CONFIDENCE = 40
 VERIFIED_FROM = 80
 LIKELY_FROM = 60
 UNCONFIRMED_MAX = LIKELY_FROM - 1
-OLD_PHOTO_YEARS = 15
 
 # Geotag with a known campus polygon.
 W_GEO_INSIDE = 28
@@ -38,9 +38,8 @@ W_CATEGORY = 22
 W_SUBCATEGORY = 16
 W_BUILDING = 6
 W_NAME_IN_TEXT = 14
-W_OFFICIAL_SITE = 16
+W_OFFICIAL_SITE = 30
 W_NO_LICENSE = -12
-W_OLD = -8
 W_PEOPLE_OR_EVENT = -15
 W_SPECIMEN = -15
 W_OTHER_INSTITUTION = -20
@@ -196,6 +195,8 @@ def content_evidence(raw: RawImage, ctx: CampusContext) -> Evidence | None:
         return _ev("content", t["people"], W_PEOPLE_OR_EVENT)
     if cat.is_specimen(raw):
         return _ev("content", t["specimen"], W_SPECIMEN)
+    if cat.is_food_closeup(raw):
+        return _ev("content", t["food_closeup"], W_SPECIMEN)
     return None
 
 
@@ -225,6 +226,9 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
         name = building.name or t["unnamed_building"]
         evidence.append(_ev("category", t["building"].format(b=name, t=type_name), W_BUILDING))
 
+    if raw.subject_kind == "building" and raw.subject_name:
+        evidence.append(_ev("category", t["building_subject"].format(b=raw.subject_name), W_BUILDING))
+
     if raw.matched_category:
         key, weight = ("subcategory", W_SUBCATEGORY) if raw.matched_subcategory else ("category", W_CATEGORY)
         evidence.append(_ev("category", t[key].format(c=raw.matched_category), weight))
@@ -240,18 +244,32 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
     if content:
         evidence.append(content)
 
-    if not raw.license:
+    if raw.vision_checked and raw.vision_label:
+        evidence.append(_ev("vision", raw.vision_label, raw.vision_weight))
+
+    if not raw.license and not official:
         evidence.append(_ev("missing", t["no_license"], W_NO_LICENSE))
 
-    year = int(raw.published_at[:4]) if raw.published_at and raw.published_at[:4].isdigit() else None
-    if year and year < ctx.today.year - OLD_PHOTO_YEARS:
-        evidence.append(_ev("date", t["old"].format(y=year), W_OLD))
+    date_source = effective_date_source(raw.date_taken, raw.date_uploaded, raw.date_source, raw.date_hint_year)
+    if date_label := date_evidence_label(raw.date_taken, raw.date_uploaded, date_source, ctx.lang):
+        evidence.append(_ev("date", date_label, 0))
+    if not raw.vision_checked:
+        evidence.append(_ev("missing", t["not_visually_checked"], 0))
 
     confidence, tier = finalize(evidence)
+    if raw.vision_checked and raw.vision_weight < 0:
+        confidence, tier = min(confidence, UNCONFIRMED_MAX), "unconfirmed"
+    if not raw.vision_checked and tier == "verified":
+        confidence, tier = VERIFIED_FROM - 1, "likely"
     linked = bool(raw.matched_category or name or official)
     # Without a polygon, a geotag beyond the point radius is "unknown"; unlinked, it is not the campus.
     off_campus = on_campus is False or (on_campus is None and raw.lat is not None and not linked)
     category, tags = cat.classify(raw, False if off_campus else on_campus, linked, building)
+    if raw.vision_category in ("classrooms", "libraries") and not off_campus:
+        category = raw.vision_category
+    subject_categories = {"dorm": "dorms", "library": "libraries", "academic": "classrooms"}
+    if raw.subject_building_type in subject_categories and not off_campus:
+        category = subject_categories[raw.subject_building_type]
     return Photo(
         id=raw.id,
         thumb_url=raw.thumb_url,
@@ -264,7 +282,11 @@ def score(raw: RawImage, ctx: CampusContext) -> Photo | None:
         source_domain=raw.source_domain,
         author=raw.author or "unknown",
         license=raw.license or "unknown",
-        published_at=raw.published_at,
+        date_taken=raw.date_taken,
+        date_uploaded=raw.date_uploaded,
+        date_source=date_source,
+        freshness=freshness(raw.date_taken, raw.date_hint_year),
+        vision_checked=raw.vision_checked,
         retrieved_at=ctx.today.isoformat(),
         lat=raw.lat,
         lng=raw.lng,

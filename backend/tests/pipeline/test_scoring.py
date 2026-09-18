@@ -21,7 +21,7 @@ def test_category_without_geotag_but_named_is_likely():
 def test_far_geotag_outweighs_the_category():
     p = score(raw(lat=37.513, lng=127.009, matched_category="Korea University", published_at="1971"), CTX)
     assert p.tier == "unconfirmed"
-    assert weights(p)["geo"] < 0 and weights(p)["date"] < 0
+    assert weights(p)["geo"] < 0 and weights(p)["date"] == 0
     assert p.category == "campus"  # linked to the university: low confidence, but not "city"
 
 
@@ -82,6 +82,17 @@ def test_honest_cap_blocks_non_place_evidence():
 def test_official_site_is_text_evidence():
     p = score(raw(source="official_site", source_domain="www.korea.ac.kr", found_by="site", title="Campus"), CTX)
     assert any(e.type == "text" and "korea.ac.kr" in e.label for e in p.evidence)
+    assert p.tier == "likely"
+    assert not any("license" in e.label.lower() for e in p.evidence)
+
+
+def test_web_search_official_domain_can_be_likely_but_random_web_stays_hidden():
+    official = score(raw(source="web_search", source_domain="www.korea.ac.kr", found_by="text",
+                         title="Korea University campus 2025", license=None), CTX)
+    random = score(raw(source="web_search", source_domain="example.com", found_by="text",
+                       title="Korea University campus 2025", license=None), CTX)
+    assert official.tier == "likely"
+    assert random.tier == "unconfirmed"
 
 
 def test_non_latin_name_glued_to_numbers_counts_as_mention():
@@ -99,10 +110,11 @@ def test_not_a_place_is_dropped():
         "File:Korea University logo.png", "File:Cambridge Antiuniversity event flyer.jpg",
         "File:Documento con las calificaciones.jpg", "File:Magazine cover 1925.jpg", "File:Poster.jpg",
         "File:Certificate of graduation.jpg", "File:Postage stamps.jpg", "File:고려대학교 포스터.jpg",
-        "File:Обложка журнала.jpg", "File:Scan of the book page.jpg",
+        "File:Обложка журнала.jpg", "File:Scan of the book page.jpg", "File:The Granite Tower wordmark.jpg",
     ]:
         assert score(raw(title=title), CTX) is None, title
     assert score(raw(source_categories=["Book covers of 1925"]), CTX) is None
+    assert score(raw(source_categories=["Student newspapers published by universities"]), CTX) is None
     assert score(raw(title="File:Main Building.jpg"), CTX) is not None
 
 
@@ -141,9 +153,19 @@ def test_missing_license_is_penalised():
     assert any("license" in e.label for e in without.evidence)
 
 
-def test_old_photo_is_penalised():
-    assert weights(score(raw(published_at="1990-01-01"), CTX))["date"] < 0
-    assert "date" not in weights(score(raw(published_at="2020-01-01"), CTX))
+def test_freshness_does_not_change_verification_tier():
+    older = score(raw(matched_category="Korea University", title="File:Korea University.jpg", published_at="2022-07-27"), CTX)
+    recent = score(raw(matched_category="Korea University", title="File:Korea University.jpg", published_at="2024-07-27"), CTX)
+    assert weights(older)["date"] == 0 and weights(recent)["date"] == 0
+    assert older.tier == recent.tier == "likely"
+    assert older.freshness == "2020_2023" and recent.freshness == "2024_plus"
+
+
+def test_unchecked_photo_cannot_be_verified():
+    photo = score(raw(**INSIDE, matched_category="Korea University", title="File:Korea University main hall.jpg",
+                      vision_checked=False), CTX)
+    assert photo.tier == "likely" and photo.confidence == 79
+    assert any(e.type == "missing" and "visually checked" in e.label for e in photo.evidence)
 
 
 def test_labels_follow_language_and_retrieved_at_is_today():

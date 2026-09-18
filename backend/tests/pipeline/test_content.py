@@ -47,6 +47,10 @@ def test_multilingual_people_and_events():
         assert "content" in weights(score(raw(**INSIDE, title=title), CTX)), title
 
 
+def test_newsletter_is_not_a_campus_photo():
+    assert score(raw(title="Research newsletter issue 50 cover.jpg"), CTX) is None
+
+
 def test_event_and_people_categories_count():
     for categories in [
         ["Events at the Massachusetts Institute of Technology"],
@@ -107,6 +111,12 @@ def test_samples_and_experiments_are_capped_despite_geo_and_building():
         p = score(raw(**IN_LIBRARY, **kwargs), CTX)
         assert p.tier == "unconfirmed", kwargs
         assert any("sample" in label for label in content_labels(p)), kwargs
+
+
+def test_food_closeups_are_capped_despite_geo_and_category():
+    p = score(raw(**INSIDE, matched_category="Korea University", title="File:Pizza at Korea University cafeteria.jpg"), CTX)
+    assert p.tier == "unconfirmed"
+    assert any("food" in label for label in content_labels(p))
 
 
 def test_lab_rooms_and_places_with_science_words_stay_places():

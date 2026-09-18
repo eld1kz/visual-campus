@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 SourceState = Literal["ok", "timeout", "error"]
 ResolveStatus = Literal["resolved", "ambiguous", "not_found"]
@@ -49,6 +49,8 @@ EvidenceType = Literal["geo", "category", "text", "vision", "missing", "date", "
 Tier = Literal["verified", "likely", "unconfirmed"]
 PhotoCategory = Literal["campus", "dorms", "classrooms", "libraries", "city"]
 PhotoTag = Literal["sport", "labs", "dorm", "student_life"]
+DateSource = Literal["exif", "source_metadata", "structured_data", "upload_only", "text_hint", "unknown"]
+Freshness = Literal["2024_plus", "2020_2023", "older", "date_unknown", "historic"]
 ProfileSourceState = Literal["pending", "ok", "timeout", "error", "skipped"]
 
 
@@ -76,13 +78,22 @@ class Photo(BaseModel):
     source_domain: str
     author: str
     license: str = Field(description="'unknown' when the source states no license")
-    published_at: str | None
+    date_taken: str | None = Field(default=None, validation_alias=AliasChoices("date_taken", "published_at"))
+    date_uploaded: str | None = None
+    date_source: DateSource = "unknown"
+    freshness: Freshness = "date_unknown"
+    vision_checked: bool = False
     retrieved_at: str
     lat: float | None
     lng: float | None
     heading_deg: float | None = Field(default=None, description="Camera direction, 0 = north, clockwise")
     evidence: list[Evidence]
     duplicates: list[DuplicatePhoto]
+
+    @property
+    def published_at(self) -> str | None:
+        """Compatibility accessor; omitted from serialized API output."""
+        return self.date_taken or self.date_uploaded
 
 
 class ProfileSourceStatus(BaseModel):
@@ -153,6 +164,7 @@ class ProfileDone(BaseModel):
     generated_in_ms: int
     cached: bool
     partial: bool = Field(description="A source timed out or failed, or the 30 s deadline hit")
+    photo_ids: list[str] = Field(default_factory=list, description="Final ranked ids; discard provisional photos not listed")
 
 
 # ---------- GET /campus/{wikidata_id} (docs/CONTRACT.md §4) ----------
@@ -261,7 +273,8 @@ class ChatMessage(BaseModel):
 # ---------- Internal: source collectors → verification pipeline (docs/CONTRACT.md §6) ----------
 
 SourceName = Literal[
-    "wikidata", "openstreetmap", "wikimedia_commons", "wikipedia", "flickr", "mapillary", "official_site"
+    "wikidata", "openstreetmap", "wikimedia_commons", "wikipedia", "flickr", "mapillary", "official_site",
+    "openverse", "web_search",
 ]
 
 
@@ -279,11 +292,24 @@ class RawImage(BaseModel):
     source_categories: list[str] = []
     matched_category: str | None = None
     matched_subcategory: bool = False
-    found_by: Literal["category", "geosearch", "bbox", "site", "text"]
+    found_by: Literal[
+        "category", "geosearch", "bbox", "site", "text", "depicts", "wikidata_image", "sitemap", "openverse"
+    ]
     author: str | None = None
     license: str | None = None
     license_url: str | None = None
-    published_at: str | None = None
+    date_taken: str | None = Field(default=None, validation_alias=AliasChoices("date_taken", "published_at"))
+    date_uploaded: str | None = None
+    date_source: DateSource = "unknown"
+    date_hint_year: int | None = None
+    vision_checked: bool = False
+    vision_label: str | None = None
+    vision_weight: int = 0
+    vision_category: PhotoCategory | None = None
+    subject_id: str | None = None
+    subject_name: str | None = None
+    subject_kind: Literal["university", "building", "city"] | None = None
+    subject_building_type: BuildingType | None = None
     lat: float | None = None
     lng: float | None = None
     heading_deg: float | None = None
@@ -291,6 +317,11 @@ class RawImage(BaseModel):
     height: int | None = None
     sha1: str | None = None
     is_official_site: bool = False
+
+    @property
+    def published_at(self) -> str | None:
+        """Compatibility accessor for older internal callers and tests."""
+        return self.date_taken or self.date_uploaded
 
 
 class SourceResult(BaseModel):

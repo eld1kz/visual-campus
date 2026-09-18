@@ -2,6 +2,6 @@
 
 from app.services.pipeline.dedupe import Deduplicator
 from app.services.pipeline.scoring import CampusContext, score
-from app.services.pipeline.vision import vision_check
+from app.services.pipeline.vision import batch_vision_check, vision_check
 
-__all__ = ["CampusContext", "Deduplicator", "score", "vision_check"]
+__all__ = ["CampusContext", "Deduplicator", "score", "vision_check", "batch_vision_check"]
