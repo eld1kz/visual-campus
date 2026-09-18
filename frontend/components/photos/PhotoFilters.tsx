@@ -11,12 +11,14 @@ type Props = {
   onSort: (sort: PhotoSort) => void;
   showUnconfirmed: boolean;
   onToggleUnconfirmed: () => void;
+  showHistoric: boolean;
+  onToggleHistoric: () => void;
 };
 
 const segment = (on: boolean) =>
   `rounded-full border-none px-[13px] py-1.5 text-[12.5px] ${on ? "bg-surface-2 font-medium text-ink" : "bg-transparent text-ink-3"}`;
 
-export function PhotoFilters({ tags, onToggleTag, sort, onSort, showUnconfirmed, onToggleUnconfirmed }: Props) {
+export function PhotoFilters({ tags, onToggleTag, sort, onSort, showUnconfirmed, onToggleUnconfirmed, showHistoric, onToggleHistoric }: Props) {
   const { t } = usePreferences();
 
   return (
@@ -46,6 +48,10 @@ export function PhotoFilters({ tags, onToggleTag, sort, onSort, showUnconfirmed,
         <label className="flex cursor-pointer items-center gap-[7px] rounded-full bg-surface-2 px-3 py-1.5 text-xs text-ink-2">
           <input type="checkbox" checked={showUnconfirmed} onChange={onToggleUnconfirmed} className="m-0 accent-accent" />
           <span>{t.tierToggle}</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-[7px] rounded-full bg-surface-2 px-3 py-1.5 text-xs text-ink-2">
+          <input type="checkbox" checked={showHistoric} onChange={onToggleHistoric} className="m-0 accent-accent" />
+          <span>{t.historicToggle}</span>
         </label>
       </div>
     </div>

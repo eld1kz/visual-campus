@@ -42,6 +42,8 @@ export type ResolveResponse = {
 export type Tier = "verified" | "likely" | "unconfirmed";
 export type PhotoCategory = "campus" | "dorms" | "classrooms" | "libraries" | "city";
 export type PhotoTag = "dorm" | "sport" | "labs" | "student_life";
+export type DateSource = "exif" | "source_metadata" | "structured_data" | "upload_only" | "text_hint" | "unknown";
+export type Freshness = "2024_plus" | "2020_2023" | "older" | "date_unknown" | "historic";
 
 export type Evidence = {
   type: "geo" | "category" | "text" | "vision" | "missing" | "date" | "content";
@@ -69,7 +71,11 @@ export type Photo = {
   source_domain: string;
   author: string;
   license: string;
-  published_at: string | null;
+  date_taken: string | null;
+  date_uploaded: string | null;
+  date_source: DateSource;
+  freshness: Freshness;
+  vision_checked: boolean;
   retrieved_at: string;
   lat?: number | null;
   lng?: number | null;
@@ -134,6 +140,8 @@ export type ProfileDone = {
   cached: boolean;
   /** A source timed out or failed, or the 30 s deadline hit. */
   partial: boolean;
+  /** Final ranked ids; provisional streamed photos not present here are discarded. */
+  photo_ids: string[];
 };
 
 export type ProfileEvent =

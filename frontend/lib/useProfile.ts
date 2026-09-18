@@ -42,14 +42,16 @@ function apply(store: Store, e: ProfileEvent): Store {
   if (e.event === "photo") return { ...store, progress: { ...p, photos: upsert(p.photos, e.data, (x) => x.id === e.data.id) } };
   if (e.event === "summary") return { ...store, progress: { ...p, summary: e.data } };
   const d = e.data;
+  const finalIds = new Set(d.photo_ids);
+  const finalPhotos = p.photos.filter((photo) => finalIds.has(photo.id));
   const profile: Profile = {
     university: d.university,
     generated_in_ms: d.generated_in_ms,
     sources_status: p.sources,
     summary: p.summary ?? { text: "", citations: [] },
-    photos: p.photos,
+    photos: finalPhotos,
   };
-  return { ...store, progress: p, ready: { profile, stats: d.stats, partial: d.partial } };
+  return { ...store, progress: { ...p, photos: finalPhotos }, ready: { profile, stats: d.stats, partial: d.partial } };
 }
 
 /**

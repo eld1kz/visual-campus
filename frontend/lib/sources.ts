@@ -10,6 +10,7 @@ const NAMES: Record<string, Partial<Record<Lang, string>>> = {
   flickr: { ru: "Flickr", en: "Flickr" },
   mapillary: { ru: "Mapillary", en: "Mapillary" },
   official_site: { ru: "Официальный сайт", en: "Official website" },
+  web_search: { ru: "Веб-поиск", en: "Web search" },
   "Официальный сайт": { en: "Official website" },
   "Веб-поиск": { en: "Web search" },
 };

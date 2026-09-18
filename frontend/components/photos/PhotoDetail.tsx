@@ -6,7 +6,8 @@ import { RoundButton } from "@/components/ui/Button";
 import { TierBadge } from "@/components/ui/TierBadge";
 import { EVIDENCE_ICON, evidenceLabel, tierMeta } from "@/lib/tiers";
 import type { Photo } from "@/lib/types";
-import { licenseView, photoAlt } from "./PhotoCard";
+import { dateSourceLabel } from "@/lib/photos";
+import { isOfficialPhoto, licenseView, photoAlt } from "./PhotoCard";
 import { PhotoImage } from "./PhotoImage";
 
 type Props = {
@@ -31,7 +32,7 @@ export function PhotoDetail({ photo, onPrev, onNext, onClose }: Props) {
   const [dupOpen, setDupOpen] = useState(false);
   const [reported, setReported] = useState(false);
   const meta = tierMeta(photo.tier, t);
-  const license = licenseView(photo.license, t.unknownLicense);
+  const license = licenseView(photo.license, t.unknownLicense, isOfficialPhoto(photo) ? t.officialRights : undefined);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -82,8 +83,14 @@ export function PhotoDetail({ photo, onPrev, onNext, onClose }: Props) {
               <MetaRow label={t.license}>
                 <span style={{ color: license.color }}>{license.label}</span>
               </MetaRow>
-              <MetaRow label={t.published}>
-                <span className="font-mono">{photo.published_at}</span>
+              <MetaRow label={t.dateTaken}>
+                <span className="font-mono">{photo.date_taken ?? "—"}</span>
+              </MetaRow>
+              <MetaRow label={t.dateUploaded}>
+                <span className="font-mono">{photo.date_uploaded ?? "—"}</span>
+              </MetaRow>
+              <MetaRow label={t.dateSource}>
+                <span>{dateSourceLabel(photo, lang)}</span>
               </MetaRow>
               <MetaRow label={t.retrieved}>
                 <span className="font-mono">{photo.retrieved_at}</span>

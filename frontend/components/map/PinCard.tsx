@@ -21,7 +21,7 @@ export function PinCard({ pin, photo, onOpen, onClose }: Props) {
         </a>
       ),
     },
-    { label: t.published, value: <span className="font-mono">{photo.published_at}</span> },
+    { label: t.dateTaken, value: <span className="font-mono">{photo.date_taken ?? photo.date_uploaded ?? "—"}</span> },
   ];
 
   return (
