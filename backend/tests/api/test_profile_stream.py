@@ -162,3 +162,12 @@ def test_search_names_drop_a_lone_toponym_but_keep_acronyms_and_other_scripts():
     uni = record(name="University of Cambridge", name_en="University of Cambridge", city=None,
                  names=["University of Cambridge", "Cambridge", "Cambridge University", "KAIST", "고려대"])
     assert search_names(uni) == ["University of Cambridge", "Cambridge University", "KAIST", "고려대"]
+
+
+def test_stage_events_announce_what_the_build_is_doing_before_done(fake):
+    events = parse_sse(run(get(f"/profile/{QID}?lang=en")).text)
+    stages = [d["stage"] for e, d in events if e == "stage"]
+    assert stages[0] == "sources" and stages[-1] == "finalizing"
+    assert "vision" in stages
+    last_stage = max(i for i, (e, _) in enumerate(events) if e == "stage")
+    assert events[-1][0] == "done" and last_stage < len(events) - 1

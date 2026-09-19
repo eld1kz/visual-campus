@@ -148,10 +148,21 @@ export type ProfileDone = {
   photo_ids: string[];
 };
 
+/** What the server is doing after the sources: shown on the loading screen. */
+export type BuildStage = {
+  stage: "sources" | "gap_fill" | "vision" | "finalizing";
+  /** gap_fill: categories being searched. */
+  categories?: string[];
+  /** vision: photos checked so far and how many will be checked (null until known). */
+  checked?: number;
+  total?: number | null;
+};
+
 export type ProfileEvent =
   | { event: "source_status"; data: ProfileSourceStatus }
   | { event: "photo"; data: Photo }
   | { event: "summary"; data: { text: string; citations: Citation[] } }
+  | { event: "stage"; data: BuildStage }
   | { event: "done"; data: ProfileDone };
 
 /** GET /profile/{wikidata_id} — the profile contract plus summary counts. */

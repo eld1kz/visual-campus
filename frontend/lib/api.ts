@@ -24,7 +24,7 @@ export function resolveUniversity(query: string, signal?: AbortSignal): Promise<
   return getJson(`/resolve?q=${encodeURIComponent(query)}`, RESOLVE_TIMEOUT_MS, signal);
 }
 
-const PROFILE_EVENTS = new Set<string>(["source_status", "photo", "summary", "done"]);
+const PROFILE_EVENTS = new Set<string>(["source_status", "photo", "summary", "stage", "done"]);
 
 export type ProfileHandlers = {
   /** The endpoint answered with a finished JSON ProfileResponse (before the switch to SSE). */

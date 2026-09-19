@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, loadProfile } from "@/lib/api";
 import type { Lang } from "@/lib/i18n";
-import type { Citation, Photo, Profile, ProfileEvent, ProfileSourceStatus, ProfileStats } from "@/lib/types";
+import type { BuildStage, Citation, Photo, Profile, ProfileEvent, ProfileSourceStatus, ProfileStats } from "@/lib/types";
 
 /** What has arrived so far. With the JSON endpoint nothing arrives until the whole profile is ready. */
 export type ProfileProgress = {
@@ -12,6 +12,8 @@ export type ProfileProgress = {
   sources: ProfileSourceStatus[];
   photos: Photo[];
   summary: { text: string; citations: Citation[] } | null;
+  /** Current server-side step after the sources; null before the first stage event. */
+  stage: BuildStage | null;
 };
 
 export type ReadyProfile = {
@@ -29,7 +31,7 @@ export type ProfileState =
 type Store = { key: string; progress: ProfileProgress; ready?: ReadyProfile; error?: ApiError };
 
 const TICK_MS = 100;
-const EMPTY: ProfileProgress = { mode: null, sources: [], photos: [], summary: null };
+const EMPTY: ProfileProgress = { mode: null, sources: [], photos: [], summary: null, stage: null };
 
 const upsert = <T,>(list: T[], item: T, same: (a: T) => boolean) => {
   const i = list.findIndex(same);
@@ -41,6 +43,7 @@ function apply(store: Store, e: ProfileEvent): Store {
   if (e.event === "source_status") return { ...store, progress: { ...p, sources: upsert(p.sources, e.data, (s) => s.name === e.data.name) } };
   if (e.event === "photo") return { ...store, progress: { ...p, photos: upsert(p.photos, e.data, (x) => x.id === e.data.id) } };
   if (e.event === "summary") return { ...store, progress: { ...p, summary: e.data } };
+  if (e.event === "stage") return { ...store, progress: { ...p, stage: e.data } };
   const d = e.data;
   const byId = new Map(p.photos.map((photo) => [photo.id, photo]));
   const finalPhotos = d.photo_ids.flatMap((id) => byId.get(id) ?? []); // keep the server ranking

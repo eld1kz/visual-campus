@@ -11,6 +11,7 @@ import io
 import json
 import logging
 import time
+from collections.abc import Callable
 
 import anthropic
 import httpx
@@ -141,13 +142,16 @@ async def _ask(images: list[str], name: str) -> list[dict]:
 
 
 async def claude_vision_check(
-    items: list[tuple[RawImage, Photo]], name: str, client: httpx.AsyncClient, budget_s: float, limit: int
+    items: list[tuple[RawImage, Photo]], name: str, client: httpx.AsyncClient, budget_s: float, limit: int,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> dict[str, RawImage]:
+    """`on_progress(checked, total)` is called when the candidates are known and after every answered batch."""
     if not settings.llm_api_key or budget_s <= 2 or limit <= 0:
         return {}
     picked = candidates(items, limit)
     if not picked:
         return {}
+    report = on_progress or (lambda checked, total: None)
     deadline = time.monotonic() + budget_s
     updated: dict[str, RawImage] = {}
     todo: list[RawImage] = []
@@ -170,20 +174,26 @@ async def claude_vision_check(
             return None
         return await asyncio.to_thread(_jpeg, response.content)
 
-    images = await asyncio.gather(*(download(raw) for raw in todo))
-    ready = [(raw, data) for raw, data in zip(todo, images) if data]
-    batches = [ready[start:start + BATCH_SIZE] for start in range(0, len(ready), BATCH_SIZE)]
+    report(len(updated), len(picked))
+    # Each batch downloads its own thumbnails and is sent at once: checks start within seconds instead of
+    # waiting for every download, and the progress counter moves from the first batch.
+    batches = [todo[start:start + BATCH_SIZE] for start in range(0, len(todo), BATCH_SIZE)]
     request_slots = asyncio.Semaphore(PARALLEL_REQUESTS)
+    downloaded = 0
 
-    async def run(batch: list[tuple[RawImage, str]]) -> None:
+    async def run(raws: list[RawImage]) -> None:
+        nonlocal downloaded
         async with request_slots:
+            images = await asyncio.gather(*(download(raw) for raw in raws))
+            batch = [(raw, data) for raw, data in zip(raws, images) if data]
+            downloaded += len(batch)
             left = deadline - time.monotonic()
-            if left < 2:
+            if not batch or left < 2:
                 return
             try:
                 results = await asyncio.wait_for(_ask([data for _, data in batch], name), timeout=left)
             except Exception as exc:  # the OpenCLIP verdict stays
-                logger.warning("Claude vision batch of %d failed: %s", len(batch), exc)
+                logger.warning("Claude vision batch of %d failed: %r", len(batch), exc)
                 return
         for result in results:
             index = result.get("i", 0) - 1
@@ -191,8 +201,9 @@ async def claude_vision_check(
                 raw = batch[index][0]
                 _cache[raw.full_url] = (time.monotonic(), result)
                 updated[raw.id] = apply(raw, result)
+        report(len(updated), len(picked))
 
     await asyncio.gather(*(run(batch) for batch in batches))
     logger.info("claude_vision candidates=%d downloaded=%d checked=%d in %.1f s",
-                len(picked), len(ready), len(updated), budget_s - (deadline - time.monotonic()))
+                len(picked), downloaded, len(updated), budget_s - (deadline - time.monotonic()))
     return updated

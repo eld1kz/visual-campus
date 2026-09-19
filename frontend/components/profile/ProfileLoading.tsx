@@ -6,6 +6,7 @@ import { PhotoImage } from "@/components/photos/PhotoImage";
 import { photoAlt } from "@/components/photos/PhotoCard";
 import { TierBadge } from "@/components/ui/TierBadge";
 import type { ProfileProgress } from "@/lib/useProfile";
+import { BuildSteps } from "./BuildSteps";
 import { LiveSources } from "./LiveSources";
 
 /** Sources the JSON endpoint queries; shown without timings until the server reports real statuses. */
@@ -58,8 +59,11 @@ export function ProfileLoading({ name, progress, elapsedMs, header, onCancel }: 
         </>
       )}
 
-      <div className="mb-[34px] max-w-[420px]">
-        <LiveSources sources={sources} active={active} />
+      <div className="mb-[34px] grid grid-cols-[repeat(auto-fit,minmax(min(100%,340px),1fr))] gap-x-12 gap-y-7">
+        <div className="max-w-[420px]">
+          <LiveSources sources={sources} active={active} />
+        </div>
+        {progress.mode === "stream" && <BuildSteps stage={progress.stage} active={active} />}
       </div>
 
       {progress.mode === "stream" && (

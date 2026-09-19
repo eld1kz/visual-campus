@@ -278,6 +278,7 @@ class ProfileBuild:
         )
         query = build_query_plan(uni, shape, discovered)
         sources_started = time.perf_counter()
+        self._stage("sources")
         tasks: dict[str, asyncio.Task] = {}
         if shape is not None:
             self._apply_shape(shape)
@@ -315,6 +316,7 @@ class ProfileBuild:
             await self._fill_gaps(photo_query if deferred else query, client)
         if self._left() > 1.5:
             await self._vision(client)
+        self._stage("finalizing")
 
         if self._hash_tasks:
             _, hash_pending = await asyncio.wait(self._hash_tasks, timeout=max(self._left(), 0))
@@ -424,6 +426,7 @@ class ProfileBuild:
         empty = [c for c in GAP_CATEGORIES if reliable[c] < GAP_MIN_RELIABLE]
         if not empty:
             return
+        self._stage("gap_fill", categories=empty)
         try:
             raws = await asyncio.wait_for(web_search.search_gaps(query, client, empty, GAP_FILL_S), GAP_FILL_S + 0.5)
         except Exception:  # noqa: BLE001 — nothing extra found
@@ -438,13 +441,15 @@ class ProfileBuild:
             key=lambda pair: (pair[1].tier != "unconfirmed", pair[1].confidence, pair[1].freshness == "2024_plus"),
             reverse=True,
         )
+        self._stage("vision", checked=0, total=None)
         claude_task = None
         if settings.llm_api_key and settings.claude_vision_max > 0 and self._left() > 3:
             # Claude runs next to OpenCLIP (network vs local CPU); its verdicts are applied last and win.
             items = [(raw, photo) for photo, raw in self.scored.values()]
             claude_task = asyncio.create_task(claude_vision_check(
                 items, self.ctx.names[0], client, budget_s=min(CLAUDE_VISION_S, self._left() - 0.5),
-                limit=settings.claude_vision_max))
+                limit=settings.claude_vision_max,
+                on_progress=lambda checked, total: self._stage("vision", checked=checked, total=total)))
         try:
             self._apply_vision(await batch_vision_check(prioritized, client, budget_s=min(12.0, max(0.0, self._left()))))
         except Exception:  # missing model/runtime failure leaves the explicit unchecked cap in place
@@ -455,6 +460,10 @@ class ProfileBuild:
             self._apply_vision(await claude_task)
         except Exception:
             logger.exception("Claude visual check failed for %s", self.qid)
+
+    def _stage(self, stage: str, **details) -> None:
+        """What the build is doing now, for the loading screen (docs/CONTRACT.md §3 `stage`)."""
+        self.log.emit("stage", {"stage": stage, **details})
 
     def _apply_vision(self, updated: dict[str, RawImage]) -> None:
         if not updated:
