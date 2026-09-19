@@ -151,7 +151,7 @@ export async function askGuide(
   return response.json();
 }
 
-const CAMPUS_TIMEOUT_MS = 20_000;
+const CAMPUS_TIMEOUT_MS = 40_000; // the map tab may refetch OSM buildings (up to 18 s)
 
 /** GET /campus/{id} — outline, typed buildings and photo pins for the campus map (docs/CONTRACT.md §4). */
 export function loadCampus(wikidataId: string, lang: Lang, signal?: AbortSignal): Promise<CampusMap> {

@@ -29,6 +29,7 @@ def no_panoramas() -> Panoramas:
 
 
 MAX_WALK_POINTS = 300
+MAP_OSM_BUDGET_S = 18.0
 
 
 def mapillary_panoramas(photos: list[Photo], lat: float, lng: float) -> Panoramas:
@@ -84,7 +85,10 @@ async def get_campus(
     shape: CampusShape | None = cache.get_shape(wikidata_id)
     university = cached.profile.university if cached else None
 
-    if university is None or shape is None:
+    # The profile build gives OSM 7.5 s and often gets the outline without the buildings ("buildings timed out");
+    # the map tab is not on that clock, so it fetches them with a longer budget and updates the cache.
+    needs_shape = shape is None or not shape.buildings
+    if university is None or needs_shape:
         async with httpx.AsyncClient(
             timeout=SOURCE_TIMEOUT_S, headers={"User-Agent": settings.user_agent}, follow_redirects=True
         ) as client:
@@ -95,13 +99,14 @@ async def get_campus(
                 return error(404, f"No university found for Wikidata ID {wikidata_id}.")
             if record.lat is None or record.lng is None:
                 return error(404, f"Wikidata item {wikidata_id} has no coordinates, so there is no campus map.")
-            if shape is None:
+            if needs_shape:
                 query = SourceQuery(
                     wikidata_id=wikidata_id, names=search_names(record), lat=record.lat, lng=record.lng,
                     website=record.website, commons_category=record.commons_category,
                 )
-                result, shape = await osm.find_campus(query, client)
-                if shape is not None:
+                result, fresh = await osm.find_campus(query, client, budget_s=MAP_OSM_BUDGET_S)
+                if fresh is not None and (shape is None or len(fresh.buildings) > len(shape.buildings)):
+                    shape = fresh
                     cache.put_shape(wikidata_id, shape, complete=result.status == "ok" and result.detail is None)
         if university is None:
             university = to_university(record, shape)

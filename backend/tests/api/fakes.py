@@ -75,7 +75,7 @@ def fake(monkeypatch):
             raise state["wikidata_exc"]
         return state["record"] if qid == QID else None
 
-    async def find_campus(query, client):
+    async def find_campus(query, client, budget_s=7.5):
         calls["osm"] += 1
         await asyncio.sleep(state["osm_delay"])
         return SourceResult(name="openstreetmap", status="ok", took_ms=1), state["shape"]

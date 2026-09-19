@@ -52,3 +52,14 @@ def test_walk_points_come_from_the_profile_mapillary_images(monkeypatch):
     assert pano.provider == "mapillary" and pano.available
     assert [p.image_id for p in pano.points] == ["222", "111"]
     assert pano.start.image_id == "111" and pano.start.captured_at == "2025-05-01"
+
+
+def test_map_refetches_buildings_when_the_cached_outline_has_none(fake):
+    from app.models import CampusShape
+    from app.services import cache
+
+    cache.put_shape(QID, CampusShape(polygon=[[127.03, 37.59], [127.04, 37.59], [127.04, 37.6]], area_km2=0.5,
+                                     osm_url=None, buildings=[]), complete=False)
+    body = run(get(f"/campus/{QID}?lang=en")).json()
+    assert len(body["buildings"]) == 1  # the fake OSM answer, fetched again on the map tab
+    assert cache.get_shape(QID).buildings

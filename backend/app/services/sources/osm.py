@@ -296,9 +296,12 @@ def _covers(campus: Campus, lat: float, lng: float) -> bool:
     return all(distance_m(lat, lng, y, x) <= BUILDINGS_AROUND_POINT_M for x in (west, east) for y in (south, north))
 
 
-async def find_campus(query: SourceQuery, client: httpx.AsyncClient) -> tuple[SourceResult, CampusShape | None]:
+async def find_campus(
+    query: SourceQuery, client: httpx.AsyncClient, budget_s: float = SOURCE_BUDGET_S,
+) -> tuple[SourceResult, CampusShape | None]:
+    """`budget_s`: the profile build keeps the source budget; the map tab can wait longer for the buildings."""
     started = time.perf_counter()
-    deadline = Deadline(SOURCE_BUDGET_S)
+    deadline = Deadline(budget_s)
     state: dict = {"campus": None, "polygon_done": False, "buildings": None}
 
     def result(status: str, detail: str | None = None) -> tuple[SourceResult, CampusShape | None]:
@@ -336,11 +339,11 @@ async def find_campus(query: SourceQuery, client: httpx.AsyncClient) -> tuple[So
         state["buildings"] = parse_buildings(elements, geometry)
 
     try:
-        await asyncio.wait_for(work(), timeout=SOURCE_BUDGET_S)
+        await asyncio.wait_for(work(), timeout=budget_s)
     except (asyncio.TimeoutError, httpx.TimeoutException):
         if state["polygon_done"]:
             return result("ok", "buildings timed out" + (", only those near the point" if state["buildings"] else ""))
-        return result("timeout", f"budget {SOURCE_BUDGET_S:g} s reached")
+        return result("timeout", f"budget {budget_s:g} s reached")
     except Exception as exc:
         if state["polygon_done"]:
             return result("ok", f"buildings failed: {type(exc).__name__}: {exc}")
