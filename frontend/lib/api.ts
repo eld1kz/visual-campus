@@ -1,6 +1,6 @@
 import type { Lang } from "@/lib/i18n";
 import { createSseParser } from "@/lib/sse";
-import type { ChatMessage, ProfileEvent, ProfileResponse, ResolveResponse, SourceStatus } from "@/lib/types";
+import type { CampusMap, ChatMessage, ProfileEvent, ProfileResponse, ResolveResponse, SourceStatus } from "@/lib/types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -149,4 +149,11 @@ export async function askGuide(
     throw new ApiError(data.detail ?? response.statusText, "http", response.status);
   }
   return response.json();
+}
+
+const CAMPUS_TIMEOUT_MS = 20_000;
+
+/** GET /campus/{id} — outline, typed buildings and photo pins for the campus map (docs/CONTRACT.md §4). */
+export function loadCampus(wikidataId: string, lang: Lang, signal?: AbortSignal): Promise<CampusMap> {
+  return getJson(`/campus/${encodeURIComponent(wikidataId)}?lang=${lang}`, CAMPUS_TIMEOUT_MS, signal);
 }

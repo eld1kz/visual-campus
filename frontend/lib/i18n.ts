@@ -26,6 +26,13 @@ const ru = {
   navBackToChoices: "← Назад к вариантам",
   navHome: "← На главную",
   navCancel: "Отмена",
+  liveMap: {
+    buildings: "зданий",
+    pins: "фото на карте",
+    outline: "контур кампуса",
+    hint: "Точки — фото с геотегом, клик открывает фото. Колесо мыши с Ctrl/⌘ — масштаб; в 3D правой кнопкой можно наклонить и повернуть.",
+    noBuildings: "OpenStreetMap не вернул здания кампуса вовремя — в 3D видны объёмы зданий из подложки карты.",
+  },
   stages: {
     title: "Что происходит",
     sources: "Собираем фото из источников",
@@ -291,6 +298,13 @@ const en: Dict = {
   navBackToChoices: "← Back to the options",
   navHome: "← Home",
   navCancel: "Cancel",
+  liveMap: {
+    buildings: "buildings",
+    pins: "photos on the map",
+    outline: "campus outline",
+    hint: "Dots are geotagged photos; a click opens the photo. Ctrl/⌘ + wheel zooms; in 3D, right-drag tilts and turns.",
+    noBuildings: "OpenStreetMap did not return campus buildings in time: 3D shows the basemap building volumes.",
+  },
   stages: {
     title: "What is happening",
     sources: "Collecting photos from the sources",

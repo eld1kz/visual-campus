@@ -14,7 +14,7 @@ import { MAP } from "@/lib/mock/map";
 import { CATEGORIES, type PhotoTab } from "@/lib/photos";
 import type { Photo, PhotoCategory, Profile, ProfileStats } from "@/lib/types";
 import { AboutSection } from "./AboutSection";
-import { LiveMapPlaceholder } from "./LiveMapPlaceholder";
+import { LiveCampusMap } from "./LiveCampusMap";
 import { PartialBanner } from "./PartialBanner";
 import { ProfileHeader } from "./ProfileHeader";
 import { SectionTabs, type ProfileSection } from "./SectionTabs";
@@ -108,8 +108,7 @@ export function ProfileView({ profile, stats, live, partial = false, params, onB
 
       {section === "map" &&
         (live ? (
-          // The campus map is not connected to the API yet: show real facts instead of the demo campus.
-          <LiveMapPlaceholder university={profile.university} />
+          <LiveCampusMap university={profile.university} onOpenPhoto={openById} />
         ) : (
           <CampusMapSection
             data={MAP}
