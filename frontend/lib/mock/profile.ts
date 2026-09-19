@@ -1,4 +1,4 @@
-// DEMO DATA — ported from design/Visual Campus.dc.html (UNIS, summary, sources).
+// Sample profile data for preview screens.
 import type { Profile, ProfileUniversity } from "@/lib/types";
 import { MAP } from "./map";
 import { PHOTOS } from "./photos";

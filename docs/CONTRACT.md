@@ -1,11 +1,11 @@
 # Visual Campus — контракт данных
 
-Единый источник правды для всех агентов и людей. Код обязан ему соответствовать:
+Единый источник правды для API и интерфейса. Код обязан ему соответствовать:
 
 - бэкенд — `backend/app/models.py` (Pydantic);
 - фронтенд — `frontend/lib/types.ts` (TypeScript).
 
-Эти два файла и этот документ меняет **только главный агент**. Субагент, которому нужно изменение, описывает его в разделе «Нужны ли изменения контракта» своего отчёта и не правит контракт сам.
+При изменении формата ответа обновляйте оба типа и этот документ вместе.
 
 Общие правила:
 
@@ -19,12 +19,12 @@
 
 ## 1. Бюджет времени
 
-| Что | Предел | Кто отвечает |
+| Что | Предел | Реализация |
 |---|---|---|
-| Весь профиль (от запроса до события `done`) | ≤ 30 с | api-agent (оркестратор) |
-| Один источник (сетевой запрос сборщика целиком) | ≤ 8 с, затем статус `timeout` | sources-agent + обёртка `run_source` |
-| Первое событие `photo` | ≤ 5 с от запроса | api-agent + sources-agent |
-| Повторный запрос того же профиля | из кэша, `done` < 1 с | api-agent |
+| Весь профиль (от запроса до события `done`) | ≤ 30 с | `services/orchestrator.py` |
+| Один источник (сетевой запрос сборщика целиком) | ≤ 8 с, затем статус `timeout` | `services/sources/base.py` |
+| Первое событие `photo` | ≤ 5 с от запроса | оркестратор и источники |
+| Повторный запрос того же профиля | из кэша, `done` < 1 с | `services/cache.py` |
 | `GET /resolve` | как реализовано: таймаут источника `SOURCE_TIMEOUT_S` (5 с) | — |
 
 Следствия:
@@ -74,7 +74,7 @@
 
 ## 3. `GET /profile/{wikidata_id}?lang=ru` — SSE-стрим
 
-> **Статус:** сейчас эндпоинт отдаёт готовый JSON `ProfileResponse` за один раз. Целевой формат — SSE ниже; перевод делает api-agent. `ProfileResponse` остаётся форматом кэша.
+Эндпоинт отправляет SSE-события; `ProfileResponse` остаётся форматом кэша.
 
 `wikidata_id` — `^Q\d+$`.
 
@@ -265,7 +265,7 @@ data: <одна строка JSON>
 
 ## 4. `GET /campus/{wikidata_id}` — данные для карты
 
-Форма повторяет `design/README.md` → «Data contracts → campus map» и `CampusMap` во фронтенде.
+Форма соответствует `CampusMapResponse` в бэкенде и `CampusMap` во фронтенде.
 
 ```jsonc
 {
@@ -299,17 +299,8 @@ data: <одна строка JSON>
       "thumb_url": "…" | null,
       "building_id": "osm-way-123" | null
     }
-  ],
-  "panoramas": {
-    "provider": "mapillary" | "kakao" | "google" | null,  // null, если панорам нет
-    "available": true,
-    "checked_providers": ["mapillary", "kakao"],        // что реально проверили
-    "start": { "lat": …, "lng": …, "captured_at": "2023-06-01", "image_id": "123456789" } | null,  // ближайший к центру кадр
-    "points": [ { "lat": …, "lng": …, "captured_at": "…", "image_id": "…" } ]  // до 300 кадров Mapillary из профиля
-  }
+  ]
 }
-// Прогулка строится из кадров Mapillary, которые собрал профиль (он должен быть в кэше); без MAPILLARY_TOKEN или
-// без кадров — available: false. Фронтенд показывает их в MapillaryJS с клиентским токеном NEXT_PUBLIC_MAPILLARY_TOKEN.
 ```
 
 - `404` — нет такого элемента в Wikidata; `503` — Wikidata недоступна. Центр вуза без координат — `404` с понятным `detail`.
@@ -457,16 +448,16 @@ class Deduplicator:                  # состояние на один проф
 
 | Переменная | Кто использует | Без неё |
 |---|---|---|
-| `FLICKR_API_KEY` | sources-agent | `flickr` → `skipped` |
-| `MAPILLARY_TOKEN` | sources-agent, map-agent (бэкенд `/campus`) | `mapillary` → `skipped`, панорамы не проверяются |
+| `FLICKR_API_KEY` | источник Flickr | `flickr` → `skipped` |
+| `MAPILLARY_TOKEN` | источник фото Mapillary | `mapillary` → `skipped` |
 | `OPENVERSE_CLIENT_ID`, `OPENVERSE_CLIENT_SECRET` | Openverse | анонимно: 20 результатов/запрос и низкий rate limit |
 | `VISION_ENABLED` | локальный OpenCLIP | `0`: фото остаются `vision_checked=false`, tier максимум `likely` |
 | `VISION_MAX_CANDIDATES` | локальный OpenCLIP | по умолчанию сначала проверяются 140 лучших кандидатов |
 | `AI_USER_DAILY_BUDGET_USD` | все вызовы Claude | дневной лимит на пользователя в USD (по умолчанию 1). Пользователь — анонимный id браузера из заголовка `X-Client-Id`, иначе IP. Сборку профиля оплачивает тот, кто её запустил; открытие из кэша бесплатно |
 | `AI_DAILY_BUDGET_USD` | все вызовы Claude | общий дневной потолок в USD (по умолчанию 20). После любого лимита — OpenCLIP, Википедия и честный ответ гида; `0` выключает Claude |
 | `PHOTO_TARGETS` | финальный отбор | пусто по умолчанию: все надёжные фото; `campus=60,dorms=20` — необязательный потолок на категорию |
-| `KAKAO_API_KEY` | map-agent | Kakao не проверяется |
-| `LLM_API_KEY` | api-agent (резюме), verify-agent (vision), mascot-agent (чат) | резюме из Wikipedia без LLM; без vision; чат отвечает поиском по текстам или `dont_know` |
+| `KAKAO_API_KEY` | клиент Kakao | Kakao не проверяется |
+| `LLM_API_KEY` | резюме, визуальная проверка, чат | резюме из Wikipedia без LLM; без Claude vision; чат отвечает поиском по текстам или `dont_know` |
 | `SOURCE_TIMEOUT_S` | `/resolve` | 5 с |
 
-Фронтенд: `NEXT_PUBLIC_API_URL` (по умолчанию `http://localhost:8000`), `NEXT_PUBLIC_MAPILLARY_TOKEN`, `NEXT_PUBLIC_KAKAO_JS_KEY` — ключи для клиентских SDK карты.
+Фронтенд: `NEXT_PUBLIC_API_URL` (по умолчанию `http://localhost:8000`).

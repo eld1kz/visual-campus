@@ -1,4 +1,4 @@
-// DEMO DATA — ported from design/Visual Campus.dc.html (BRAND, QA, MASCOT_STATES).
+// Sample guide data for preview screens.
 import type { ChatAction, Citation, MascotConfig, MascotState } from "@/lib/types";
 
 export const BRAND: Record<string, MascotConfig> = {

@@ -1,7 +1,9 @@
-# Handoff: Visual Campus — verified campus photo profile, campus map, guide mascot
+# Visual Campus design reference
+
+This directory preserves the original interactive mockup. It is not the current product specification: the shipped map has 2D and 3D views, and the street-level walk shown in the mockup was removed. For the current API and behavior, see `docs/CONTRACT.md` and the root `README.md`.
 
 ## Overview
-Visual Campus takes a university name and returns, in under 30 seconds, a verified visual profile of the campus and student life: photos with stated sources, licenses and confidence tiers, a campus map (2D / 3D / street-level walk), and an AI guide mascot ("Кампи") that answers questions strictly from the sources collected for that university.
+The original mockup took a university name and presented photos, a campus map and a guide mascot. It included a street-level walk that is no longer part of the application.
 
 Product values: verifiability, source transparency, speed. Interface language Russian with an RU/EN switch. Light and dark theme. Desktop + mobile.
 

@@ -1,4 +1,4 @@
-// DEMO DATA — ported from design/Visual Campus.dc.html (PHOTOS).
+// Sample photo data for preview screens.
 import type { Evidence, Photo } from "@/lib/types";
 
 const EV = {

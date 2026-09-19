@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { MascotState, OutfitAccessory, OutfitHead, OutfitTop } from "@/lib/types";
 
-// «Кампи» — layered flat-vector character, ported from design/Mascot.dc.html.
+// «Кампи» uses separate vector layers for animation.
 // Layers are kept separate so they can move to Rive/Lottie without redrawing.
 
 export type MascotProps = {
