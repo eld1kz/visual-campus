@@ -304,9 +304,12 @@ data: <одна строка JSON>
     "provider": "mapillary" | "kakao" | "google" | null,  // null, если панорам нет
     "available": true,
     "checked_providers": ["mapillary", "kakao"],        // что реально проверили
-    "start": { "lat": …, "lng": …, "captured_at": "2023-06-01" } | null
+    "start": { "lat": …, "lng": …, "captured_at": "2023-06-01", "image_id": "123456789" } | null,  // ближайший к центру кадр
+    "points": [ { "lat": …, "lng": …, "captured_at": "…", "image_id": "…" } ]  // до 300 кадров Mapillary из профиля
   }
 }
+// Прогулка строится из кадров Mapillary, которые собрал профиль (он должен быть в кэше); без MAPILLARY_TOKEN или
+// без кадров — available: false. Фронтенд показывает их в MapillaryJS с клиентским токеном NEXT_PUBLIC_MAPILLARY_TOKEN.
 ```
 
 - `404` — нет такого элемента в Wikidata; `503` — Wikidata недоступна. Центр вуза без координат — `404` с понятным `detail`.

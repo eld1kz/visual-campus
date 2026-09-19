@@ -233,6 +233,7 @@ class PanoramaStart(BaseModel):
     lat: float
     lng: float
     captured_at: str | None
+    image_id: str | None = Field(default=None, description="Provider image id, e.g. the Mapillary image key")
 
 
 class Panoramas(BaseModel):
@@ -240,6 +241,7 @@ class Panoramas(BaseModel):
     available: bool
     checked_providers: list[PanoramaProvider]
     start: PanoramaStart | None
+    points: list[PanoramaStart] = Field(default_factory=list, description="Street-level images around the campus")
 
 
 class CampusMapResponse(BaseModel):

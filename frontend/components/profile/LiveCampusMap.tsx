@@ -6,7 +6,9 @@ import type { Map as MlMap } from "maplibre-gl";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { loadCampus } from "@/lib/api";
 import { loadMaplibre, mapStyleUrl } from "@/lib/maplibre";
-import type { BuildingType, CampusMap, ProfileUniversity } from "@/lib/types";
+import { BuildingCard } from "@/components/map/BuildingCard";
+import type { Building, BuildingType, CampusMap, Photo, ProfileUniversity } from "@/lib/types";
+import { WalkView } from "./WalkView";
 
 // MapLibre does not parse oklch(): the building palette of lib/map/geometry.ts in hex.
 const TYPE_COLOR: Record<BuildingType, string> = {
@@ -25,19 +27,22 @@ const LEVEL_M = 3.2;
 
 type Props = {
   university: ProfileUniversity;
+  photos: Photo[];
   onOpenPhoto: (photoId: string) => void;
 };
 
-type Mode = "2d" | "3d";
+type Mode = "2d" | "3d" | "walk";
 
 /** Real campus map from GET /campus: outline, typed buildings, photo pins, route to the centre; 2D or tilted 3D. */
-export function LiveCampusMap({ university, onOpenPhoto }: Props) {
+export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
   const { t, lang, theme } = usePreferences();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const [data, setData] = useState<CampusMap | null>(null);
   const [failed, setFailed] = useState(false);
   const [mode, setMode] = useState<Mode>("2d");
+  const [selected, setSelected] = useState<Building | null>(null);
+  const [walkStart, setWalkStart] = useState<string | null>(null);
   const openPhoto = useRef(onOpenPhoto);
   const modeRef = useRef<Mode>("2d");
   useEffect(() => {
@@ -113,7 +118,7 @@ export function LiveCampusMap({ university, onOpenPhoto }: Props) {
           features: data.buildings.map((b) => ({
             type: "Feature" as const,
             properties: {
-              name: b.name, color: TYPE_COLOR[b.type] ?? TYPE_COLOR.other, inside: b.inside_campus,
+              id: b.id, name: b.name, color: TYPE_COLOR[b.type] ?? TYPE_COLOR.other, inside: b.inside_campus,
               height: b.height_m ?? (b.levels ? b.levels * LEVEL_M : 12),
             },
             geometry: { type: "Polygon" as const, coordinates: [b.polygon] },
@@ -131,6 +136,20 @@ export function LiveCampusMap({ university, onOpenPhoto }: Props) {
             "fill-extrusion-opacity": 0.92,
           },
         });
+
+        map.addLayer({
+          id: "buildings-selected", type: "line", source: "buildings", filter: ["==", ["get", "id"], ""],
+          paint: { "line-color": "#111318", "line-width": 2.5 },
+        });
+        for (const layer of ["buildings-2d", "buildings-3d"]) {
+          map.on("click", layer, (e) => {
+            const id = e.features?.[0]?.properties?.id;
+            const building = data.buildings.find((b) => b.id === id);
+            if (building) setSelected(building);
+          });
+          map.on("mouseenter", layer, () => map && (map.getCanvas().style.cursor = "pointer"));
+          map.on("mouseleave", layer, () => map && (map.getCanvas().style.cursor = ""));
+        }
 
         map.addSource("pins", {
           type: "geojson",
@@ -168,12 +187,39 @@ export function LiveCampusMap({ university, onOpenPhoto }: Props) {
     };
   }, [data, theme, university.center_route]);
 
-  // 2D ⇄ 3D: flat typed footprints vs. tilted extruded buildings.
+  // 2D ⇄ 3D: flat typed footprints vs. tilted extruded buildings. Walk mode hides the map, so resize on return.
   useEffect(() => {
+    if (mode === "walk") return;
     modeRef.current = mode;
     const map = mapRef.current;
-    if (map?.isStyleLoaded()) applyMode(map, mode, true);
+    if (!map?.isStyleLoaded()) return;
+    map.resize();
+    applyMode(map, mode, true);
   }, [mode]);
+
+  // Outline the selected building.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.getLayer("buildings-selected")) map.setFilter("buildings-selected", ["==", ["get", "id"], selected?.id ?? ""]);
+  }, [selected]);
+
+  const walkPoints = (data?.panoramas.points ?? []).filter((p) => p.image_id);
+  const canWalk = Boolean(data?.panoramas.available && walkPoints.length && process.env.NEXT_PUBLIC_MAPILLARY_TOKEN);
+
+  const walkFrom = (lng: number, lat: number) => {
+    const nearest = walkPoints.reduce<(typeof walkPoints)[number] | null>(
+      (best, p) => (!best || (p.lng - lng) ** 2 + (p.lat - lat) ** 2 < (best.lng - lng) ** 2 + (best.lat - lat) ** 2 ? p : best),
+      null,
+    );
+    if (!nearest?.image_id) return;
+    setWalkStart(nearest.image_id);
+    setMode("walk");
+  };
+
+  const buildingCentre = (b: Building): [number, number] => {
+    const n = b.polygon.length || 1;
+    return [b.polygon.reduce((s, p) => s + p[0], 0) / n, b.polygon.reduce((s, p) => s + p[1], 0) / n];
+  };
 
   if (failed) {
     return <div className="rounded-[20px] bg-surface-2 p-[38px] text-[13px] text-ink-3">{t.live.noMapFacts}</div>;
@@ -185,13 +231,21 @@ export function LiveCampusMap({ university, onOpenPhoto }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        {(["2d", "3d"] as const).map((m, i) => (
+        {(["2d", "3d", "walk"] as const).map((m, i) => (
           <button
             key={m}
-            onClick={() => setMode(m)}
+            disabled={m === "walk" && !canWalk}
+            title={m === "walk" && !canWalk ? t.liveMap.walkUnavailable : undefined}
+            onClick={() => {
+              if (m === "walk") {
+                setWalkStart(data?.panoramas.start?.image_id ?? null);
+                setSelected(null);
+              }
+              setMode(m);
+            }}
             className={`rounded-full border-none px-4 py-2 text-[13px] ${
               mode === m ? "bg-ink font-medium text-bg" : "bg-surface-2 text-ink-2"
-            }`}
+            } disabled:cursor-not-allowed disabled:opacity-40`}
           >
             {t.map.modes[i]}
           </button>
@@ -202,9 +256,29 @@ export function LiveCampusMap({ university, onOpenPhoto }: Props) {
         </span>
       </div>
 
-      <div ref={container} className="ph-grid h-[560px] overflow-hidden rounded-[20px] [--g:24px]" />
+      {mode === "walk" && data && walkStart && <WalkView data={data} startId={walkStart} />}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-3">
+      <div className={`relative ${mode === "walk" ? "hidden" : ""}`}>
+        <div ref={container} className="ph-grid h-[560px] overflow-hidden rounded-[20px] [--g:24px]" />
+        {selected && (
+          <div className="absolute left-3 top-3 max-h-[536px] w-[min(340px,calc(100%-24px))] overflow-y-auto rounded-[16px] bg-bg p-4 shadow-[0_8px_30px_rgba(0,0,0,.18)]">
+            <BuildingCard
+              building={selected}
+              photos={photos}
+              flatHeights={false}
+              onOpenPhoto={onOpenPhoto}
+              onShow3d={() => {
+                setMode("3d");
+                mapRef.current?.flyTo({ center: buildingCentre(selected), zoom: 17.3, pitch: PITCH_3D, duration: 1200 });
+              }}
+              onWalk={() => walkFrom(...buildingCentre(selected))}
+              onClose={() => setSelected(null)}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className={`flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-3 ${mode === "walk" ? "hidden" : ""}`}>
         <Legend color={CAMPUS_COLOR} dashed label={t.liveMap.outline} />
         {counts.map(([type, n]) => (
           <Legend key={type} color={TYPE_COLOR[type]} label={`${t.map.types[type]} · ${n}`} />
@@ -220,7 +294,7 @@ export function LiveCampusMap({ university, onOpenPhoto }: Props) {
 
 function applyMode(map: MlMap, mode: Mode, animate: boolean) {
   const three = mode === "3d";
-  for (const [id, on] of [["buildings-2d", !three], ["buildings-3d", three], ["basemap-3d", three]] as const) {
+  for (const [id, on] of [["buildings-2d", !three], ["buildings-3d", three], ["basemap-3d", three], ["buildings-selected", !three]] as const) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
   }
   const camera = { pitch: three ? PITCH_3D : 0, bearing: three ? -20 : 0 };

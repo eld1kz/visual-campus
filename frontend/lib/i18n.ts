@@ -32,6 +32,10 @@ const ru = {
     outline: "контур кампуса",
     hint: "Точки — фото с геотегом, клик открывает фото. Колесо мыши с Ctrl/⌘ — масштаб; в 3D правой кнопкой можно наклонить и повернуть.",
     noBuildings: "OpenStreetMap не вернул здания кампуса вовремя — в 3D видны объёмы зданий из подложки карты.",
+    walkUnavailable: "Для прогулки нет уличных снимков Mapillary рядом с кампусом.",
+    walkHint: "Стрелки в кадре — идти дальше; точки на карте справа — перейти к снимку.",
+    walkShots: "снимков",
+    walkTaken: "снято",
   },
   stages: {
     title: "Что происходит",
@@ -304,6 +308,10 @@ const en: Dict = {
     outline: "campus outline",
     hint: "Dots are geotagged photos; a click opens the photo. Ctrl/⌘ + wheel zooms; in 3D, right-drag tilts and turns.",
     noBuildings: "OpenStreetMap did not return campus buildings in time: 3D shows the basemap building volumes.",
+    walkUnavailable: "No Mapillary street-level images near the campus for a walk.",
+    walkHint: "Arrows in the image walk on; dots on the map jump to a shot.",
+    walkShots: "shots",
+    walkTaken: "taken",
   },
   stages: {
     title: "What is happening",

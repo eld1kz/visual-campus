@@ -108,7 +108,7 @@ export function ProfileView({ profile, stats, live, partial = false, params, onB
 
       {section === "map" &&
         (live ? (
-          <LiveCampusMap university={profile.university} onOpenPhoto={openById} />
+          <LiveCampusMap university={profile.university} photos={profile.photos} onOpenPhoto={openById} />
         ) : (
           <CampusMapSection
             data={MAP}

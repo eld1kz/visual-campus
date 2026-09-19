@@ -222,7 +222,9 @@ export type CampusMap = {
     provider: PanoramaProvider | null;
     available: boolean;
     checked_providers: PanoramaProvider[];
-    start: { lat: number; lng: number; captured_at: string | null } | null;
+    start: { lat: number; lng: number; captured_at: string | null; image_id?: string | null } | null;
+    /** Street-level images around the campus (walk mode). */
+    points?: { lat: number; lng: number; captured_at: string | null; image_id?: string | null }[];
   };
   /** Demo only: street segments with panorama coverage and the placeholder projection bbox. */
   pano_paths?: LngLat[][];
