@@ -3,6 +3,7 @@
 import asyncio
 import io
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -124,7 +125,8 @@ def embedding_for_url(url: str) -> tuple[float, ...] | None:
 
 
 async def batch_vision_check(
-    items: list[tuple[RawImage, Photo]], client: httpx.AsyncClient, budget_s: float
+    items: list[tuple[RawImage, Photo]], client: httpx.AsyncClient, budget_s: float,
+    on_image: "Callable[[RawImage, bytes], None] | None" = None,
 ) -> dict[str, RawImage]:
     if not settings.vision_enabled or budget_s <= 1:
         return {}
@@ -150,6 +152,8 @@ async def batch_vision_check(
                     timeout=min(3.0, max(0.5, deadline - time.monotonic())),
                 )
             response.raise_for_status()
+            if on_image is not None:
+                on_image(raw, response.content)
             return response.content
         except Exception:
             return None

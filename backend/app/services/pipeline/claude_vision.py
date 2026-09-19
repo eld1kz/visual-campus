@@ -159,6 +159,7 @@ async def _ask(images: list[str], name: str) -> list[dict]:
 async def claude_vision_check(
     items: list[tuple[RawImage, Photo]], name: str, client: httpx.AsyncClient, budget_s: float, limit: int,
     on_progress: Callable[[int, int], None] | None = None,
+    on_image: Callable[[RawImage, bytes], None] | None = None,
 ) -> dict[str, RawImage]:
     """`on_progress(checked, total)` is called when the candidates are known and after every answered batch."""
     if not settings.llm_api_key or budget_s <= 2 or limit <= 0:
@@ -192,6 +193,8 @@ async def claude_vision_check(
             response.raise_for_status()
         except Exception:
             return None
+        if on_image is not None:
+            on_image(raw, response.content)
         return await asyncio.to_thread(_jpeg, response.content)
 
     report(len(updated), len(picked))

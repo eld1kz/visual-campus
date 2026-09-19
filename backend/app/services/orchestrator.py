@@ -22,6 +22,7 @@ from app.models import (
 from app.services import cache
 from app.services.pipeline import CampusContext, Deduplicator, batch_vision_check, score
 from app.services.pipeline.claude_vision import claude_vision_check
+from app.services.pipeline.dedupe import _phash
 from app.services.pipeline.ranking import select_targets
 from app.services.query_planner import build_query_plan
 from app.services.sources import commons, mapillary, official_site, openverse, osm, run_source, web_search
@@ -449,9 +450,11 @@ class ProfileBuild:
             claude_task = asyncio.create_task(claude_vision_check(
                 items, self.ctx.names[0], client, budget_s=min(CLAUDE_VISION_S, self._left() - 0.5),
                 limit=settings.claude_vision_max,
-                on_progress=lambda checked, total: self._stage("vision", checked=checked, total=total)))
+                on_progress=lambda checked, total: self._stage("vision", checked=checked, total=total),
+                on_image=self._hash_bytes))
         try:
-            self._apply_vision(await batch_vision_check(prioritized, client, budget_s=min(12.0, max(0.0, self._left()))))
+            self._apply_vision(await batch_vision_check(prioritized, client, budget_s=min(12.0, max(0.0, self._left())),
+                                                        on_image=self._hash_bytes))
         except Exception:  # missing model/runtime failure leaves the explicit unchecked cap in place
             logger.exception("Visual check failed for %s", self.qid)
         if claude_task is None:
@@ -471,7 +474,19 @@ class ProfileBuild:
         """What the build is doing now, for the loading screen (docs/CONTRACT.md §3 `stage`)."""
         self.log.emit("stage", {"stage": stage, **details})
 
+    def _hash_bytes(self, raw: RawImage, content: bytes) -> None:
+        """Thumbnails downloaded for the visual checks also give the pHash: duplicates beyond the hash budget."""
+        if raw.id in self.hasher.hashes():
+            return
+        try:
+            self.hasher.set_hash(raw.id, _phash(content))
+        except Exception:  # noqa: BLE001 — not an image the hasher can read
+            pass
+
     def _apply_vision(self, updated: dict[str, RawImage]) -> None:
+        if len(self.hasher.hashes()) != self._hashes_grouped and not updated:
+            self._refresh()  # new hashes from the visual checks: regroup duplicates
+            return
         if not updated:
             return
         for photo_id, raw in updated.items():

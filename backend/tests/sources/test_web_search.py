@@ -69,3 +69,8 @@ def test_search_gaps_runs_narrow_topics_and_ignores_failures(monkeypatch):
     raws = asyncio.run(run())
     assert len(seen) == 2 and all("library" in q for q in seen)
     assert len(raws) == 1  # the failing topic is skipped, not fatal
+
+
+def test_the_same_image_on_two_pages_is_one_photo():
+    other_page = {**BRAVE_ITEM, "url": "https://www.korea.ac.kr/news/another-article"}
+    assert web_search.parse_result(BRAVE_ITEM).id == web_search.parse_result(other_page).id

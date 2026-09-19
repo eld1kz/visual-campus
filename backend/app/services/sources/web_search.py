@@ -56,7 +56,8 @@ def parse_result(item: dict) -> RawImage | None:
     width, height = props.get("width"), props.get("height")
     if width and height and min(int(width), int(height)) < MIN_SIDE_PX:
         return None
-    key = hashlib.sha1(f"{page_url}|{image_url}".encode()).hexdigest()[:12]
+    # One image found on several pages of a site is one photo: the id depends on the image URL only.
+    key = hashlib.sha1(image_url.encode()).hexdigest()[:12]
     return RawImage(
         id=f"web-{key}",
         source="web_search",
