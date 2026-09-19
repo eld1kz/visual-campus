@@ -128,3 +128,38 @@ checks up to 80 borderline photos per profile in batches of 5, 16 requests in pa
 profiles ran after the Anthropic account ran out of credits: every Claude batch returned HTTP 400 and the profile
 was built on the OpenCLIP verdicts, as designed. In the earlier run where Claude worked for all five, Claude
 labelled most borderline Mapillary street views "not a campus place" and lifted 8–16 photos per profile to verified.
+
+
+## Final submission check — 2026-09-19, 06:41–06:48 UTC
+
+Code under test: `d2d19be`; Python 3.12 local backend, production Next.js frontend.
+155 backend tests passed (5.64 s), frontend lint and default `npm run build` passed, `pip check` passed.
+Keys enabled: Brave, Mapillary, Anthropic. Local OpenCLIP enabled. No secret values are recorded here.
+
+These are actual HTTP/SSE runs. Korea University EN was built first. An initial concurrent batch
+included four universities and an incorrectly selected non-university QID; that fifth entry is excluded.
+The corrected batch used five universities together (RU): SNU, KAIST, Nazarbayev, Cambridge, UCA.
+Finished RU profiles were uncached; shared source/shape/model caches from earlier EN requests were warm.
+Thus this is a warm-service concurrency test, not a cold-start deployment benchmark.
+`First event` is the first photo event, which can be provisional, not necessarily a verified photo.
+Times exclude the preceding resolve request. Counts include historic photos and hidden unconfirmed photos.
+
+| University | Batch / language | V / L / U | Reliable campus/dorms/classrooms/libraries/city | Capture date known | Reliable taken 2024+ | Median reliable capture age | First event | Done | Source errors |
+|---|---|---|---|---|---|---|---|---|---|
+| Korea University | initial / EN | 19/115/285 | 86/2/16/14/16 | 41/134 reliable | 0/134 | 15.7 years | 2.40 s | 21.42 s | none |
+| Al-Farabi KazNU | initial / EN | 4/120/17 | 122/1/1/0/0 | 7/124 reliable | 1/124 | 11.7 years | 3.41 s | 22.00 s | official_site: error |
+| Seoul National University | corrected 5-way / RU | 25/84/69 | 86/5/10/7/1 | 16/109 reliable | 1/109 | 9.0 years | 2.83 s | 25.06 s | none |
+| KAIST | corrected 5-way / RU | 100/215/160 | 295/3/14/3/0 | 228/315 reliable | 197/315 | 1.5 years | 0.90 s | 16.09 s | none |
+| Nazarbayev University | corrected 5-way / RU | 24/13/345 | 12/1/21/0/3 | 10/37 reliable | 0/37 | 9.8 years | 0.77 s | 25.50 s | none |
+| University of Cambridge | corrected 5-way / RU | 121/176/81 | 240/17/15/25/0 | 219/297 reliable | 219/297 | 0.2 years | 1.34 s | 21.23 s | wikimedia_commons: timeout, official_site: error |
+| University of Central Asia | corrected 5-way / RU | 5/129/171 | 125/0/1/1/7 | 16/134 reliable | 5/134 | 6.8 years | 3.27 s | 30.58 s | web_search: error |
+
+Median age uses only reliable photos with capture dates; year-only/month-only dates use January 1/the first day for this approximate age statistic. Upload dates do not count.
+
+Resolve checks: Korea University resolved in 2.68 s; `Koera Univrsity` resolved to Korea University in 2.20 s; `Cambridge` ambiguous in 2.81 s; `zzzxqv nonexistent university 917263` returned not_found in 2.58 s. All HTTP 200. SNU and UCA IDs were obtained from `/resolve`. Every retained photo in the recorded profiles has a nonempty source URL. This does not certify that every external link remains reachable.
+
+Browser check: production search → resolved university → live profile; displayed images, summary citations, dates, author/license/evidence detail, and city map rendered. The RU Korea browser run took 20.9 s. No full visual error-rate estimate was measured. A screenshot spot-check found a posed-person/event photo in the Korea gallery with a verified label; this is a remaining accuracy defect. Repeated thumbnails and all categories were not exhaustively manually audited.
+
+Remaining failures: UCA took 30.58 s under five-way load (over the target); Cambridge Commons timed out in both batches; official Cambridge/Al-Farabi sources failed; a late UCA Brave gap search reported an error while preserving prior candidates. Brave was successful in the other recorded profiles. Public deployment availability was not verified without its URL.
+
+Security check: no current credential values in the tracked working files. A current Mapillary token was found in an old backend/.env.example revision reachable only through the local backup ref `refs/original/refs/heads/main`. Neither HEAD/main nor fetched origin/main history contains its value. Do not distribute the local .git directory; rotate if the token was previously exposed. Git history was not rewritten during this check.

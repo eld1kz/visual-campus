@@ -147,7 +147,7 @@ const ru = {
 
   live: {
     note: "Сервер опрашивает источники и проверяет фото. Статусы источников и фото появятся здесь по мере прихода.",
-    noteJson: "Сервер собирает профиль целиком и пришлёт его одним ответом — поэтому статусы источников пока без времени.",
+    noteJson: "Подключаемся к источникам. Фотографии и статусы появятся по мере проверки.",
     queried: "опрашивается",
     stSkipped: "пропущен",
     stError: "ошибка",
@@ -406,7 +406,7 @@ const en: Dict = {
 
   live: {
     note: "The server is querying the sources and verifying photos. Source statuses and photos appear here as they arrive.",
-    noteJson: "The server builds the whole profile and returns it in one response, so source statuses have no timings yet.",
+    noteJson: "Connecting to sources. Photos and statuses will appear as they are checked.",
     queried: "querying",
     stSkipped: "skipped",
     stError: "error",

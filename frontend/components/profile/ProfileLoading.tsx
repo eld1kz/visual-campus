@@ -9,8 +9,8 @@ import type { ProfileProgress } from "@/lib/useProfile";
 import { BuildSteps } from "./BuildSteps";
 import { LiveSources } from "./LiveSources";
 
-/** Sources the JSON endpoint queries; shown without timings until the server reports real statuses. */
-const JSON_SOURCES = ["wikidata", "openstreetmap", "wikimedia_commons", "wikipedia"];
+/** Initial sources shown until the stream reports real statuses. */
+const INITIAL_SOURCES = ["wikidata", "openstreetmap", "wikimedia_commons", "wikipedia"];
 /** Thumbnails requested at once: upload.wikimedia.org answers 429 to bursts. */
 const MAX_PREVIEW = 16;
 
@@ -31,7 +31,7 @@ export function ProfileLoading({ name, progress, elapsedMs, header, onCancel }: 
   const active = elapsedMs !== null;
   const sources = progress.sources.length
     ? progress.sources
-    : JSON_SOURCES.map((id) => ({ name: id, status: "pending" as const, count: 0, took_ms: null }));
+    : INITIAL_SOURCES.map((id) => ({ name: id, status: "pending" as const, count: 0, took_ms: null }));
   // Unconfirmed photos stay hidden, as in the profile.
   const shown = progress.photos.filter((p) => p.tier !== "unconfirmed");
 
