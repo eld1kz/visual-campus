@@ -37,7 +37,11 @@ export function ChatDrawer() {
         <div className="min-w-0">
           <div className="text-sm font-semibold">{t.guide.chatTitle}</div>
           <div className="text-[11.5px] text-ink-3">
-            {PROFILE.university.name} · <span className="font-mono tracking-[.06em] text-warn">{t.demoBadge}</span>
+            {guide.liveName ?? (
+              <>
+                {PROFILE.university.name} · <span className="font-mono tracking-[.06em] text-warn">{t.demoBadge}</span>
+              </>
+            )}
           </div>
         </div>
         <button

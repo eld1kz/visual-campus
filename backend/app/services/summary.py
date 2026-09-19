@@ -13,6 +13,7 @@ import anthropic
 import httpx
 
 from app.config import settings
+from app.services import ai_budget
 from app.models import Citation, Summary
 from app.services.text import split_sentences
 
@@ -38,6 +39,7 @@ _llm: anthropic.AsyncAnthropic | None = None
 async def complete(prompt: str, client: httpx.AsyncClient) -> str:
     """The one place the LLM provider is called (uses settings.llm_api_key). `client` is unused: the SDK has its own."""
     global _llm
+    ai_budget.check()
     if _llm is None:
         _llm = anthropic.AsyncAnthropic(api_key=settings.llm_api_key, max_retries=0)
     response = await _llm.messages.create(
@@ -46,6 +48,7 @@ async def complete(prompt: str, client: httpx.AsyncClient) -> str:
         output_config={"effort": "low"},  # short grounded rewrite: low effort keeps it inside the timeout
         messages=[{"role": "user", "content": prompt}],
     )
+    ai_budget.record(LLM_MODEL, response.usage.input_tokens, response.usage.output_tokens)
     if response.stop_reason == "refusal":
         raise RuntimeError("LLM refused the request")
     return "".join(block.text for block in response.content if block.type == "text")

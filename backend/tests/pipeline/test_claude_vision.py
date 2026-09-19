@@ -39,3 +39,11 @@ def test_candidates_skip_hopeless_signal_free_and_already_verified_photos():
     weak = raw(id="weak", title="Central Asia")  # no place signal
     items = [(r, score(r, CTX)) for r in (strong, weak)]
     assert [r.id for r, _ in cv.candidates(items, 10)] == ["strong"]
+
+
+def test_candidate_slots_are_shared_across_sources():
+    web = [raw(id=f"web-{i}", source="web_search", **EDGE_STREET) for i in range(6)]
+    street = [raw(id=f"mapillary-{i}", source="mapillary", **EDGE_STREET) for i in range(6)]
+    items = [(r, score(r, CTX)) for r in web + street]
+    picked = [r.source for r, _ in cv.candidates(items, 4)]
+    assert picked.count("web_search") == 2 and picked.count("mapillary") == 2

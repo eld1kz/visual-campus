@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { useGuide } from "@/components/guide/GuideProvider";
 import { GuideGreeting } from "@/components/guide/GuideGreeting";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { CampusMapSection } from "@/components/map/CampusMapSection";
@@ -33,6 +34,13 @@ type Props = {
 };
 
 export function ProfileView({ profile, stats, live, partial = false, params, onBack }: Props) {
+  const { setAvailable } = useGuide();
+  // The demo profile has canned answers about the demo university; a live profile turns the guide on itself.
+  useEffect(() => {
+    if (live) return;
+    setAvailable(true);
+    return () => setAvailable(false);
+  }, [live, setAvailable]);
   const { t } = usePreferences();
   const tabParam = params.get("tab");
   const initialTab: PhotoTab = CATEGORIES.includes(tabParam as PhotoCategory) ? (tabParam as PhotoCategory) : "all";
@@ -83,7 +91,7 @@ export function ProfileView({ profile, stats, live, partial = false, params, onB
         generatedInMs={profile.generated_in_ms}
         stats={stats}
         aside={
-          live ? null : <GuideGreeting universityName={profile.university.name} />
+          <GuideGreeting universityName={profile.university.name} />
         }
       />
       <AboutSection profile={profile} onOpenMap={() => setSection("map")} />

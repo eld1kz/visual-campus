@@ -1,6 +1,6 @@
 import type { Lang } from "@/lib/i18n";
 import { createSseParser } from "@/lib/sse";
-import type { ProfileEvent, ProfileResponse, ResolveResponse, SourceStatus } from "@/lib/types";
+import type { ChatMessage, ProfileEvent, ProfileResponse, ResolveResponse, SourceStatus } from "@/lib/types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -101,4 +101,30 @@ async function request(path: string, timeoutMs: number, signal?: AbortSignal): P
 
 async function getJson<T>(path: string, timeoutMs: number, signal?: AbortSignal): Promise<T> {
   return (await request(path, timeoutMs, signal)).json();
+}
+
+const CHAT_TIMEOUT_MS = 20_000;
+
+/** POST /chat — Kampi answers about a profile built in the last 30 minutes, only from its collected data. */
+export async function askGuide(
+  body: { wikidata_id: string; lang: Lang; message: string; history: { role: "user" | "assistant"; text: string }[] },
+  signal?: AbortSignal,
+): Promise<ChatMessage> {
+  const timeout = AbortSignal.timeout(CHAT_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+  } catch (err) {
+    throw new ApiError(`Network error: ${(err as Error).message}`, "network");
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(data.detail ?? response.statusText, "http", response.status);
+  }
+  return response.json();
 }

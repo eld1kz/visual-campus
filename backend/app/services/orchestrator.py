@@ -457,9 +457,15 @@ class ProfileBuild:
         if claude_task is None:
             return
         try:
-            self._apply_vision(await claude_task)
+            claude = await claude_task
         except Exception:
             logger.exception("Claude visual check failed for %s", self.qid)
+            return
+        # An unsure Claude answer must not erase a verdict OpenCLIP already gave the same photo.
+        self._apply_vision({
+            photo_id: raw for photo_id, raw in claude.items()
+            if raw.vision_label != "inconclusive" or self.raws.get(photo_id, raw).vision_source != "openclip"
+        })
 
     def _stage(self, stage: str, **details) -> None:
         """What the build is doing now, for the loading screen (docs/CONTRACT.md §3 `stage`)."""

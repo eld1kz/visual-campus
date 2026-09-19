@@ -315,24 +315,30 @@ data: <одна строка JSON>
 
 ---
 
-## 5. `POST /chat` — гид-маскот (зона mascot-agent)
+## 5. `POST /chat` — гид-маскот Кампи — реализовано
 
 ```jsonc
 // запрос
-{ "wikidata_id": "Q39997", "lang": "ru", "messages": [ { "role": "user", "text": "Где общежития?" } ] }
+{ "wikidata_id": "Q39997", "lang": "ru", "message": "Где общежития?",
+  "history": [ { "role": "user", "text": "…" }, { "role": "assistant", "text": "…" } ] }  // до 12, берутся последние 10
 
-// 200 ChatMessage
+// 200 ChatReply
 {
   "role": "assistant",
-  "text": "Общежития стоят на склоне к западу [1].",
-  "mascot_state": "talking",          // "talking" | "pointing" | "dont_know"
+  "text": "Нашлось 6 фото общежитий — они на вкладке.",
+  "mascot_state": "pointing",          // "talking" | "pointing" | "dont_know"
   "citations": [ { "n": 1, "title": "…", "url": "…" } ],
-  "actions": [ { "type": "tab", "tab": "dorms" } ],  // "photos" {photo_ids} | "map" {building_id?} | "tab" {tab}
-  "checked": null                      // при dont_know — строка: где искали
+  "actions": [ { "type": "tab", "tab": "dorms" } ],
+  "checked": null                      // при dont_know — строка: какие источники проверены
 }
 ```
 
-Отвечает только по собранному профилю (кэш): резюме и его источники, метаданные фото, здания OSM. Нет ответа в источниках → `mascot_state: "dont_know"`, пустые `citations`, заполненный `checked`. Профиля нет в кэше → `409` с `detail`.
+Claude Haiku отвечает только по пронумерованным фактам собранного профиля (кэш): данные Wikidata, резюме и его
+источник, расстояние и маршрут до центра, площадь контура, число надёжных фото по категориям. Нет ответа в фактах →
+`dont_know`, пустые `citations`, заполненный `checked`. Профиля нет в кэше → `404` с `detail`. Дневной лимит ИИ
+исчерпан или Claude недоступен → `200` с `dont_know` и объяснением, без вызова модели.
+
+`GET /ai/usage` — расход Claude за сегодня: `{date, usd, calls, input_tokens, output_tokens, budget_usd, remaining_usd}`.
 
 ---
 
@@ -452,6 +458,7 @@ class Deduplicator:                  # состояние на один проф
 | `OPENVERSE_CLIENT_ID`, `OPENVERSE_CLIENT_SECRET` | Openverse | анонимно: 20 результатов/запрос и низкий rate limit |
 | `VISION_ENABLED` | локальный OpenCLIP | `0`: фото остаются `vision_checked=false`, tier максимум `likely` |
 | `VISION_MAX_CANDIDATES` | локальный OpenCLIP | по умолчанию сначала проверяются 140 лучших кандидатов |
+| `AI_DAILY_BUDGET_USD` | все вызовы Claude | дневной лимит расходов в USD (по умолчанию 2): проверка фото, резюме, чат; после лимита — OpenCLIP, Википедия и честный ответ гида. `0` выключает Claude |
 | `PHOTO_TARGETS` | финальный отбор | пусто по умолчанию: все надёжные фото; `campus=60,dorms=20` — необязательный потолок на категорию |
 | `KAKAO_API_KEY` | map-agent | Kakao не проверяется |
 | `LLM_API_KEY` | api-agent (резюме), verify-agent (vision), mascot-agent (чат) | резюме из Wikipedia без LLM; без vision; чат отвечает поиском по текстам или `dont_know` |

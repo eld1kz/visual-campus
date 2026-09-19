@@ -29,14 +29,22 @@ function errorCopy(error: ApiError, t: Dict): { title?: string; body?: string } 
 export function LiveProfile({ wikidataId, name, params }: { wikidataId: string; name: string | null; params: URLSearchParams }) {
   const { t, lang } = usePreferences();
   const router = useRouter();
-  const { setAvailable } = useGuide();
+  const { setLiveProfile, setAvailable } = useGuide();
   const { state, retry } = useProfile(wikidataId, lang);
 
-  // The guide only knows the demo university: keep its FAB and chat off while a real profile is shown.
+  // Kampi answers about this university through POST /chat once its profile is built (and cached).
+  const readyName = state.kind === "ready" ? state.ready.profile.university.name : null;
   useEffect(() => {
-    setAvailable(false);
-    return () => setAvailable(true);
-  }, [setAvailable]);
+    setLiveProfile(readyName ? { id: wikidataId, name: readyName } : null);
+    setAvailable(readyName !== null);
+  }, [readyName, wikidataId, setLiveProfile, setAvailable]);
+  useEffect(
+    () => () => {
+      setLiveProfile(null);
+      setAvailable(false);
+    },
+    [setLiveProfile, setAvailable],
+  );
 
   const home = () => router.push("/");
   if (state.kind === "loading") {

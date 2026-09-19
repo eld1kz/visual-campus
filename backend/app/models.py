@@ -351,3 +351,32 @@ class CampusShape(BaseModel):
     area_km2: float | None
     osm_url: str | None
     buildings: list[Building]
+
+
+# ---------- Guide chat (POST /chat) ----------
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=2000)
+
+
+class ChatRequest(BaseModel):
+    wikidata_id: str = Field(pattern=r"^Q\d+$")
+    lang: Literal["ru", "en"] = "ru"
+    message: str = Field(min_length=1, max_length=500)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=12)
+
+
+class ChatAction(BaseModel):
+    type: Literal["tab"] = "tab"
+    tab: PhotoCategory
+
+
+class ChatReply(BaseModel):
+    role: Literal["assistant"] = "assistant"
+    text: str
+    mascot_state: Literal["talking", "pointing", "dont_know"]
+    citations: list[Citation] = Field(default_factory=list)
+    actions: list[ChatAction] = Field(default_factory=list)
+    checked: str | None = Field(default=None, description="When the answer is not in the sources: what was checked")

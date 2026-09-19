@@ -18,6 +18,7 @@ import httpx
 from PIL import Image
 
 from app.config import settings
+from app.services import ai_budget
 from app.models import Photo, RawImage
 
 logger = logging.getLogger("visual_campus.claude_vision")
@@ -60,12 +61,15 @@ SCHEMA = {
 }
 PROMPT = (
     "You check photos for a university campus guide about {name}. For each numbered image decide what it shows:\n"
-    "- campus_place: buildings, grounds, streets, entrances, sports fields or views of a university campus\n"
+    "- campus_place: buildings, grounds, streets, entrances, sports fields or views of a university campus. A "
+    "street-level or car-window view counts when large campus-style buildings or grounds are clearly visible, "
+    "even if the road takes up part of the frame\n"
     "- building_interior: a room inside a university building (lecture hall, library, lab room, dorm room, lobby)\n"
     "- people_or_event: people are the subject (portraits, ceremonies, meetings, group photos)\n"
     "- object_or_sample: a close-up object, specimen, equipment, food, animal or plant\n"
     "- not_a_photo: logo, chart, map, screenshot, document, poster, drawing\n"
-    "- unrelated_place: a real place that is clearly not a university campus (nature, shops, a highway)\n"
+    "- unrelated_place: a real place that is clearly not a university campus (nature, shops, a highway or "
+    "empty road with no campus buildings in view)\n"
     "category: campus, dorms, classrooms (lecture halls, labs, teaching buildings), libraries, or city (off-campus "
     "town views); dorms for student housing buildings or rooms. highlight: true only for a showcase view a "
     "visitor should see first: the main building, the main gate or entrance, a famous landmark of the campus, or a "
@@ -89,8 +93,17 @@ def candidates(items: list[tuple[RawImage, Photo]], limit: int) -> list[tuple[Ra
         if not any(e.type in ("geo", "category", "text") and e.weight > 0 for e in photo.evidence):
             continue
         picked.append((raw, photo))
-    picked.sort(key=lambda pair: (pair[1].freshness == "2024_plus", pair[1].confidence), reverse=True)
-    return picked[:limit]
+    # Slots go round-robin across sources: otherwise ~100 official-site event photos from the gap search
+    # (high confidence, mostly people) take every slot and the street-level campus views are never checked.
+    queues: dict[str, list[tuple[RawImage, Photo]]] = {}
+    for pair in sorted(picked, key=lambda pair: (pair[1].freshness == "2024_plus", pair[1].confidence), reverse=True):
+        queues.setdefault(pair[0].source, []).append(pair)
+    ordered: list[tuple[RawImage, Photo]] = []
+    while len(ordered) < limit and any(queues.values()):
+        for queue in queues.values():
+            if queue and len(ordered) < limit:
+                ordered.append(queue.pop(0))
+    return ordered
 
 
 def apply(raw: RawImage, verdict: dict) -> RawImage:
@@ -122,6 +135,7 @@ def _jpeg(content: bytes) -> str | None:
 
 async def _ask(images: list[str], name: str) -> list[dict]:
     global _client
+    ai_budget.check()
     if _client is None:
         _client = anthropic.AsyncAnthropic(api_key=settings.llm_api_key, max_retries=0)
     content: list[dict] = []
@@ -135,6 +149,7 @@ async def _ask(images: list[str], name: str) -> list[dict]:
         output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
         messages=[{"role": "user", "content": content}],
     )
+    ai_budget.record(MODEL, response.usage.input_tokens, response.usage.output_tokens)
     if response.stop_reason != "end_turn":
         raise RuntimeError(f"Claude vision stopped: {response.stop_reason}")
     text = next(block.text for block in response.content if block.type == "text")
@@ -147,6 +162,11 @@ async def claude_vision_check(
 ) -> dict[str, RawImage]:
     """`on_progress(checked, total)` is called when the candidates are known and after every answered batch."""
     if not settings.llm_api_key or budget_s <= 2 or limit <= 0:
+        return {}
+    try:
+        ai_budget.check()
+    except ai_budget.BudgetExceeded as exc:
+        logger.warning("Claude vision skipped: %s", exc)
         return {}
     picked = candidates(items, limit)
     if not picked:
