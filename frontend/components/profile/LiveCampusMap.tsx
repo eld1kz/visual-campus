@@ -8,7 +8,6 @@ import { loadCampus } from "@/lib/api";
 import { loadMaplibre, mapStyleUrl } from "@/lib/maplibre";
 import { BuildingCard } from "@/components/map/BuildingCard";
 import type { Building, BuildingType, CampusMap, Photo, ProfileUniversity } from "@/lib/types";
-import { WalkView } from "./WalkView";
 
 // MapLibre does not parse oklch(): the building palette of lib/map/geometry.ts in hex.
 const TYPE_COLOR: Record<BuildingType, string> = {
@@ -31,7 +30,7 @@ type Props = {
   onOpenPhoto: (photoId: string) => void;
 };
 
-type Mode = "2d" | "3d" | "walk";
+type Mode = "2d" | "3d";
 
 /** Real campus map from GET /campus: outline, typed buildings, photo pins, route to the centre; 2D or tilted 3D. */
 export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
@@ -42,7 +41,6 @@ export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
   const [failed, setFailed] = useState(false);
   const [mode, setMode] = useState<Mode>("2d");
   const [selected, setSelected] = useState<Building | null>(null);
-  const [walkStart, setWalkStart] = useState<string | null>(null);
   const openPhoto = useRef(onOpenPhoto);
   const modeRef = useRef<Mode>("2d");
   useEffect(() => {
@@ -187,9 +185,8 @@ export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
     };
   }, [data, theme, university.center_route]);
 
-  // 2D ⇄ 3D: flat typed footprints vs. tilted extruded buildings. Walk mode hides the map, so resize on return.
+  // Switch between flat footprints and tilted extruded buildings.
   useEffect(() => {
-    if (mode === "walk") return;
     modeRef.current = mode;
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) return;
@@ -202,19 +199,6 @@ export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
     const map = mapRef.current;
     if (map?.getLayer("buildings-selected")) map.setFilter("buildings-selected", ["==", ["get", "id"], selected?.id ?? ""]);
   }, [selected]);
-
-  const walkPoints = (data?.panoramas.points ?? []).filter((p) => p.image_id);
-  const canWalk = Boolean(data?.panoramas.available && walkPoints.length && process.env.NEXT_PUBLIC_MAPILLARY_TOKEN);
-
-  const walkFrom = (lng: number, lat: number) => {
-    const nearest = walkPoints.reduce<(typeof walkPoints)[number] | null>(
-      (best, p) => (!best || (p.lng - lng) ** 2 + (p.lat - lat) ** 2 < (best.lng - lng) ** 2 + (best.lat - lat) ** 2 ? p : best),
-      null,
-    );
-    if (!nearest?.image_id) return;
-    setWalkStart(nearest.image_id);
-    setMode("walk");
-  };
 
   const buildingCentre = (b: Building): [number, number] => {
     const n = b.polygon.length || 1;
@@ -231,21 +215,13 @@ export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        {(["2d", "3d", "walk"] as const).map((m, i) => (
+        {(["2d", "3d"] as const).map((m, i) => (
           <button
             key={m}
-            disabled={m === "walk" && !canWalk}
-            title={m === "walk" && !canWalk ? t.liveMap.walkUnavailable : undefined}
-            onClick={() => {
-              if (m === "walk") {
-                setWalkStart(data?.panoramas.start?.image_id ?? null);
-                setSelected(null);
-              }
-              setMode(m);
-            }}
+            onClick={() => setMode(m)}
             className={`rounded-full border-none px-4 py-2 text-[13px] ${
               mode === m ? "bg-ink font-medium text-bg" : "bg-surface-2 text-ink-2"
-            } disabled:cursor-not-allowed disabled:opacity-40`}
+            }`}
           >
             {t.map.modes[i]}
           </button>
@@ -256,9 +232,7 @@ export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
         </span>
       </div>
 
-      {mode === "walk" && data && walkStart && <WalkView data={data} startId={walkStart} />}
-
-      <div className={`relative ${mode === "walk" ? "hidden" : ""}`}>
+      <div className="relative">
         <div ref={container} className="ph-grid h-[560px] overflow-hidden rounded-[20px] [--g:24px]" />
         {selected && (
           <div className="absolute left-3 top-3 max-h-[536px] w-[min(340px,calc(100%-24px))] overflow-y-auto rounded-[16px] bg-bg p-4 shadow-[0_8px_30px_rgba(0,0,0,.18)]">
@@ -271,14 +245,13 @@ export function LiveCampusMap({ university, photos, onOpenPhoto }: Props) {
                 setMode("3d");
                 mapRef.current?.flyTo({ center: buildingCentre(selected), zoom: 17.3, pitch: PITCH_3D, duration: 1200 });
               }}
-              onWalk={() => walkFrom(...buildingCentre(selected))}
               onClose={() => setSelected(null)}
             />
           </div>
         )}
       </div>
 
-      <div className={`flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-3 ${mode === "walk" ? "hidden" : ""}`}>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-3">
         <Legend color={CAMPUS_COLOR} dashed label={t.liveMap.outline} />
         {counts.map(([type, n]) => (
           <Legend key={type} color={TYPE_COLOR[type]} label={`${t.map.types[type]} · ${n}`} />

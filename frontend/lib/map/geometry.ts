@@ -63,18 +63,6 @@ export function layoutPins(pins: PhotoPin[], P: Projection, zoom: number): PinIt
   }));
 }
 
-/** Street segments with panorama coverage, as absolutely positioned bars. */
-export function panoSegments(paths: LngLat[][], P: Projection) {
-  return paths.flatMap((path, pi) =>
-    path.slice(0, -1).map((start, i) => {
-      const a = P(start[0], start[1]);
-      const b = P(path[i + 1][0], path[i + 1][1]);
-      const dx = b.x - a.x, dy = b.y - a.y;
-      return { key: `${pi}-${i}`, x: a.x, y: a.y, length: Math.hypot(dx, dy), angle: (Math.atan2(dy, dx) * 180) / Math.PI };
-    }),
-  );
-}
-
 /** Direction marker towards the city centre, drawn from the campus centre (50%, 50%). */
 export function cityCentreMarker(map: CampusMap) {
   const { center, city_center } = map.campus;

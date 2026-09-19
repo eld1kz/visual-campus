@@ -10,7 +10,6 @@ export function DemoStateToggles({ flags, onToggle }: { flags: MapDemoFlags; onT
   const items: { key: keyof MapDemoFlags; label: string }[] = [
     { key: "noPolygon", label: t.map.dsPolygon },
     { key: "noHeights", label: t.map.dsHeights },
-    { key: "noPano", label: t.map.dsPano },
     { key: "no3d", label: t.map.ds3d },
   ];
 

@@ -1,5 +1,4 @@
 // Data contracts: docs/CONTRACT.md, mirrored by backend/app/models.py.
-// Only the main agent edits this file; subagents request changes in their report.
 
 /* ---------- GET /resolve (live) ---------- */
 
@@ -205,8 +204,6 @@ export type TransitStop = {
   walk_min: number;
 };
 
-export type PanoramaProvider = "mapillary" | "kakao" | "google";
-
 export type CampusMap = {
   campus: {
     center: { lat: number; lng: number };
@@ -218,16 +215,7 @@ export type CampusMap = {
   };
   buildings: Building[];
   photo_pins: PhotoPin[];
-  panoramas: {
-    provider: PanoramaProvider | null;
-    available: boolean;
-    checked_providers: PanoramaProvider[];
-    start: { lat: number; lng: number; captured_at: string | null; image_id?: string | null } | null;
-    /** Street-level images around the campus (walk mode). */
-    points?: { lat: number; lng: number; captured_at: string | null; image_id?: string | null }[];
-  };
-  /** Demo only: street segments with panorama coverage and the placeholder projection bbox. */
-  pano_paths?: LngLat[][];
+  /** Projection bounds for the static demo map. */
   bbox?: { w: number; e: number; s: number; n: number };
 };
 

@@ -181,9 +181,6 @@ class ProfileDone(BaseModel):
 # ---------- GET /campus/{wikidata_id} (docs/CONTRACT.md §4) ----------
 
 BuildingType = Literal["academic", "dorm", "library", "sport", "lab", "food", "other"]
-PanoramaProvider = Literal["mapillary", "kakao", "google"]
-
-
 class LatLng(BaseModel):
     lat: float
     lng: float
@@ -229,26 +226,10 @@ class PhotoPin(BaseModel):
     building_id: str | None
 
 
-class PanoramaStart(BaseModel):
-    lat: float
-    lng: float
-    captured_at: str | None
-    image_id: str | None = Field(default=None, description="Provider image id, e.g. the Mapillary image key")
-
-
-class Panoramas(BaseModel):
-    provider: PanoramaProvider | None
-    available: bool
-    checked_providers: list[PanoramaProvider]
-    start: PanoramaStart | None
-    points: list[PanoramaStart] = Field(default_factory=list, description="Street-level images around the campus")
-
-
 class CampusMapResponse(BaseModel):
     campus: CampusInfo
     buildings: list[Building]
     photo_pins: list[PhotoPin]
-    panoramas: Panoramas
 
 
 # ---------- POST /chat (docs/CONTRACT.md §5) ----------

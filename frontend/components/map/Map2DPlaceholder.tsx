@@ -2,7 +2,7 @@
 
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import {
-  BUILDING_TYPE_COLOR, LABEL_ZOOM, boxOf, cityCentreMarker, layoutPins, panoSegments, polygonPoints, projectionFor,
+  BUILDING_TYPE_COLOR, LABEL_ZOOM, boxOf, cityCentreMarker, layoutPins, polygonPoints, projectionFor,
 } from "@/lib/map/geometry";
 import { tierMeta } from "@/lib/tiers";
 import { CampusPolygon, MapButton, MapFrame } from "./MapFrame";
@@ -32,14 +32,6 @@ export function Map2DPlaceholder(props: MapViewProps) {
         {props.showPolygon && data.campus.polygon && (
           <CampusPolygon points={polygonPoints(data.campus.polygon, P)} fillOpacity={0.09} />
         )}
-        {layers.panoramas &&
-          panoSegments(data.pano_paths ?? [], P).map((s) => (
-            <div
-              key={s.key}
-              className="absolute h-[3px] origin-[0_50%] rounded-sm opacity-50"
-              style={{ left: `${s.x}%`, top: `${s.y}%`, width: `${s.length}%`, background: "oklch(0.6 0.13 250)", transform: `rotate(${s.angle}deg)` }}
-            />
-          ))}
         {data.buildings.filter((b) => layers.types[b.type]).map((b) => {
           const box = boxOf(b.polygon, P);
           const on = b.id === selectedBuildingId;

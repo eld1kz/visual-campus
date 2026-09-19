@@ -1,7 +1,7 @@
 "use client";
 
 import { usePreferences } from "@/components/layout/PreferencesProvider";
-import { BUILDING_TYPE_COLOR, boxOf, layoutPins, panoSegments, polygonPoints, projectionFor } from "@/lib/map/geometry";
+import { BUILDING_TYPE_COLOR, boxOf, layoutPins, polygonPoints, projectionFor } from "@/lib/map/geometry";
 import { tierMeta } from "@/lib/tiers";
 import { CampusPolygon, MapButton, MapFrame } from "./MapFrame";
 import type { MapViewProps } from "./types";
@@ -34,14 +34,6 @@ export function Map3DPlaceholder(props: Props) {
           {props.showPolygon && data.campus.polygon && (
             <CampusPolygon points={polygonPoints(data.campus.polygon, P)} fillOpacity={0.1} />
           )}
-          {layers.panoramas &&
-            panoSegments(data.pano_paths ?? [], P).map((s) => (
-              <div
-                key={s.key}
-                className="absolute h-[3px] origin-[0_50%] rounded-sm opacity-50"
-                style={{ left: `${s.x}%`, top: `${s.y}%`, width: `${s.length}%`, background: "oklch(0.6 0.13 250)", transform: `rotate(${s.angle}deg)` }}
-              />
-            ))}
           {data.buildings.filter((b) => layers.types[b.type]).map((b) => {
             const box = boxOf(b.polygon, P);
             const height = props.flatHeights ? 18 : (b.height_m ?? 12);

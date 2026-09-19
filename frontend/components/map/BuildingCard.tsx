@@ -12,11 +12,10 @@ type Props = {
   flatHeights: boolean;
   onOpenPhoto: (id: string) => void;
   onShow3d: () => void;
-  onWalk: () => void;
   onClose: () => void;
 };
 
-export function BuildingCard({ building: b, photos, flatHeights, onOpenPhoto, onShow3d, onWalk, onClose }: Props) {
+export function BuildingCard({ building: b, photos, flatHeights, onOpenPhoto, onShow3d, onClose }: Props) {
   const { t } = usePreferences();
   const own = photos.filter((p) => b.photo_ids.includes(p.id));
   const height =
@@ -57,14 +56,9 @@ export function BuildingCard({ building: b, photos, flatHeights, onOpenPhoto, on
       <div className="text-[11.5px] text-ink-3">
         {t.map.buildingSource}: © {b.source} contributors
       </div>
-      <div className="flex flex-wrap gap-[7px]">
-        <Button onClick={onShow3d} className="px-4 py-[9px] text-[12.5px]">
-          {t.map.show3d}
-        </Button>
-        <Button variant="secondary" onClick={onWalk} className="px-4 py-[9px] text-[12.5px]">
-          {t.map.walkHere}
-        </Button>
-      </div>
+      <Button onClick={onShow3d} className="px-4 py-[9px] text-[12.5px]">
+        {t.map.show3d}
+      </Button>
     </div>
   );
 }

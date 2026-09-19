@@ -1,4 +1,4 @@
-// DEMO DATA — ported from design/Visual Campus.dc.html (MAP).
+// Sample map data for preview screens.
 import type { Building, BuildingType, CampusMap } from "@/lib/types";
 
 function bld(
@@ -58,17 +58,6 @@ export const MAP: CampusMap = {
     { photo_id: "ph_1006", lat: 37.593, lng: 127.0318, heading_deg: 340, tier: "likely", confidence: 79, thumb_url: null, building_id: null },
     { photo_id: "ph_1011", lat: 37.588, lng: 127.03, heading_deg: null, tier: "unconfirmed", confidence: 41, thumb_url: null, building_id: null },
     { photo_id: "ph_1012", lat: 37.5924, lng: 127.0372, heading_deg: null, tier: "unconfirmed", confidence: 33, thumb_url: null, building_id: null },
-  ],
-  panoramas: {
-    provider: "mapillary",
-    available: true,
-    checked_providers: ["mapillary", "kakao"],
-    start: { lat: 37.589, lng: 127.0318, captured_at: "2023-05" },
-  },
-  pano_paths: [
-    [[127.0272, 37.587], [127.03, 37.5862], [127.034, 37.5866], [127.0372, 37.588]],
-    [[127.0292, 37.5872], [127.031, 37.5892], [127.033, 37.5906], [127.0348, 37.5928]],
-    [[127.036, 37.5892], [127.0378, 37.5904]],
   ],
   bbox: { w: 127.0238, e: 127.0408, s: 37.5836, n: 37.5946 },
 };

@@ -10,12 +10,11 @@ export const toggleChip = (on: boolean) =>
 
 type Props = {
   layers: MapLayers;
-  panoAvailable: boolean;
   onToggleType: (type: BuildingType) => void;
   onToggle: (layer: Exclude<keyof MapLayers, "types">) => void;
 };
 
-export function LayerChips({ layers, panoAvailable, onToggleType, onToggle }: Props) {
+export function LayerChips({ layers, onToggleType, onToggle }: Props) {
   const { t } = usePreferences();
   return (
     <div className="mb-3 flex flex-wrap gap-[7px]">
@@ -38,9 +37,6 @@ export function LayerChips({ layers, panoAvailable, onToggleType, onToggle }: Pr
       </button>
       <button onClick={() => onToggle("unconfirmedPins")} className={toggleChip(layers.unconfirmedPins)}>
         {t.tierToggle}
-      </button>
-      <button onClick={() => onToggle("panoramas")} className={toggleChip(layers.panoramas && panoAvailable)}>
-        {t.map.layerPano}
       </button>
       <button onClick={() => onToggle("transit")} className={toggleChip(layers.transit)}>
         {t.map.layerTransit}

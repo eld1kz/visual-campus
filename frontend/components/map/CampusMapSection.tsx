@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
-import { WarningBanner } from "@/components/ui/WarningBanner";
 import { BUILDING_TYPES, polygonPoints, projectionFor } from "@/lib/map/geometry";
 import type { BuildingType, CampusMap, Photo } from "@/lib/types";
 import { BuildingCard } from "./BuildingCard";
@@ -13,12 +12,10 @@ import { Map2DPlaceholder } from "./Map2DPlaceholder";
 import { Map3DPlaceholder } from "./Map3DPlaceholder";
 import { CampusPolygon, MapFrame } from "./MapFrame";
 import { MapToolbar } from "./MapToolbar";
-import { PanoramaEmpty, PanoramaPlaceholder } from "./PanoramaPlaceholder";
 import { PinCard } from "./PinCard";
 import type { MapCamera, MapDemoFlags, MapLayers, MapMode, MapViewProps } from "./types";
 
 const SKELETON_MS = 850;
-const PANO_POINTS = 8;
 const SELECTED_ZOOM = 1.7;
 const DEFAULT_CAMERA: MapCamera = { zoom: 1, bearing: 0, tilt: 58 };
 
@@ -44,13 +41,9 @@ export function CampusMapSection({ data, photos, initialBuildingId = null, onOpe
     types: Object.fromEntries(BUILDING_TYPES.map((type) => [type, true])) as Record<BuildingType, boolean>,
     pins: true,
     unconfirmedPins: false,
-    panoramas: true,
     transit: true,
   });
-  const [flags, setFlags] = useState<MapDemoFlags>({ noPolygon: false, noHeights: false, noPano: false, no3d: false });
-  const [panoBanner, setPanoBanner] = useState(false);
-  const [yaw, setYaw] = useState(0);
-  const [panoIndex, setPanoIndex] = useState(0);
+  const [flags, setFlags] = useState<MapDemoFlags>({ noPolygon: false, noHeights: false, no3d: false });
 
   useEffect(() => {
     const timer = setTimeout(() => setReady(true), SKELETON_MS);
@@ -76,7 +69,6 @@ export function CampusMapSection({ data, photos, initialBuildingId = null, onOpe
   const toggleFlag = (flag: keyof MapDemoFlags) => {
     const on = !flags[flag];
     setFlags({ ...flags, [flag]: on });
-    if (flag === "noPano") setPanoBanner(on);
     if (flag === "no3d" && on && mode === "3d") setModeState("2d");
   };
 
@@ -87,7 +79,7 @@ export function CampusMapSection({ data, photos, initialBuildingId = null, onOpe
   const viewProps: MapViewProps = {
     data,
     camera,
-    layers: { ...layers, panoramas: layers.panoramas && !flags.noPano },
+    layers,
     showPolygon: !flags.noPolygon,
     flatHeights: flags.noHeights,
     selectedBuildingId: buildingId,
@@ -117,22 +109,14 @@ export function CampusMapSection({ data, photos, initialBuildingId = null, onOpe
           setPinId(null);
         }}
       />
-      {panoBanner && flags.noPano && (
-        <WarningBanner tone="neutral" onDismiss={() => setPanoBanner(false)} className="mb-3">
-          {t.map.panoBanner}
-        </WarningBanner>
-      )}
       {flags.no3d && (
         <div className="mb-3 rounded-full bg-surface-2 px-[15px] py-2.5 text-[12.5px] text-ink-2">{t.map.no3dDevice}</div>
       )}
-      {mode !== "walk" && (
-        <LayerChips
-          layers={layers}
-          panoAvailable={!flags.noPano}
-          onToggleType={(type) => setLayers((l) => ({ ...l, types: { ...l.types, [type]: !l.types[type] } }))}
-          onToggle={(layer) => setLayers((l) => ({ ...l, [layer]: !l[layer] }))}
-        />
-      )}
+      <LayerChips
+        layers={layers}
+        onToggleType={(type) => setLayers((l) => ({ ...l, types: { ...l.types, [type]: !l.types[type] } }))}
+        onToggle={(layer) => setLayers((l) => ({ ...l, [layer]: !l[layer] }))}
+      />
 
       <div className="flex flex-wrap items-start gap-[18px]">
         <div className="min-w-0 flex-[1_1_560px]">
@@ -149,23 +133,8 @@ export function CampusMapSection({ data, photos, initialBuildingId = null, onOpe
             </MapFrame>
           ) : mode === "2d" ? (
             <Map2DPlaceholder {...viewProps} />
-          ) : mode === "3d" ? (
-            <Map3DPlaceholder {...viewProps} flyover={flyover} onToggleFlyover={() => setFlyover((f) => !f)} />
-          ) : flags.noPano ? (
-            <PanoramaEmpty checked={data.panoramas.checked_providers} onBack={() => setMode("3d")} />
           ) : (
-            <PanoramaPlaceholder
-              data={data}
-              yaw={yaw}
-              pointIndex={panoIndex}
-              pointCount={PANO_POINTS}
-              onYawChange={setYaw}
-              onStep={(delta) => {
-                setPanoIndex((i) => Math.max(0, Math.min(PANO_POINTS - 1, i + delta)));
-                setYaw((y) => y + delta * 24);
-              }}
-              onExit={() => setMode("2d")}
-            />
+            <Map3DPlaceholder {...viewProps} flyover={flyover} onToggleFlyover={() => setFlyover((f) => !f)} />
           )}
           {flags.noPolygon && (
             <div className="max-w-[60ch] pt-[9px] text-xs leading-normal text-ink-3">{t.map.noPolygonNote}</div>
@@ -180,7 +149,6 @@ export function CampusMapSection({ data, photos, initialBuildingId = null, onOpe
               flatHeights={flags.noHeights}
               onOpenPhoto={onOpenPhoto}
               onShow3d={() => setMode("3d")}
-              onWalk={() => setMode("walk")}
               onClose={() => {
                 setBuildingId(null);
                 setCamera((c) => ({ ...c, zoom: 1 }));

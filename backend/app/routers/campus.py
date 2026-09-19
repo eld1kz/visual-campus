@@ -8,14 +8,14 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.models import (
-    Building, CampusInfo, CampusMapResponse, CampusShape, ErrorResponse, LatLng, PanoramaStart, Panoramas, Photo, PhotoPin,
+    Building, CampusInfo, CampusMapResponse, CampusShape, ErrorResponse, LatLng, Photo, PhotoPin,
     SourceStatus,
 )
 from app.services import cache
 from app.services.orchestrator import (
     SOURCE_TIMEOUT_S, WIKIDATA_TIMEOUT_S, search_names, to_university,
 )
-from app.services.pipeline.scoring import building_at, distance_m
+from app.services.pipeline.scoring import building_at
 from app.services.sources import osm, run_source
 from app.services.sources.base import SourceQuery
 from app.services.wikidata import get_university
@@ -23,27 +23,7 @@ from app.services.wikidata import get_university
 router = APIRouter(tags=["campus"])
 
 
-def no_panoramas() -> Panoramas:
-    """No panorama provider is checked yet (no MAPILLARY_TOKEN / KAKAO_API_KEY): say so, do not guess."""
-    return Panoramas(provider=None, available=False, checked_providers=[], start=None)
-
-
-MAX_WALK_POINTS = 300
 MAP_OSM_BUDGET_S = 18.0
-
-
-def mapillary_panoramas(photos: list[Photo], lat: float, lng: float) -> Panoramas:
-    """Walk mode from the Mapillary images the profile already collected; start at the one nearest the centre."""
-    if not settings.mapillary_token:
-        return no_panoramas()
-    points = [
-        PanoramaStart(lat=p.lat, lng=p.lng, captured_at=p.date_taken, image_id=p.id.removeprefix("mapillary-"))
-        for p in photos if p.id.startswith("mapillary-") and p.lat is not None and p.lng is not None
-    ][:MAX_WALK_POINTS]
-    if not points:
-        return Panoramas(provider=None, available=False, checked_providers=["mapillary"], start=None)
-    start = min(points, key=lambda s: distance_m(lat, lng, s.lat, s.lng))
-    return Panoramas(provider="mapillary", available=True, checked_providers=["mapillary"], start=start, points=points)
 
 
 def link_photos(buildings: list[Building], photos: list[Photo]) -> tuple[list[Building], list[PhotoPin]]:
@@ -125,5 +105,4 @@ async def get_campus(
         ),
         buildings=buildings,
         photo_pins=pins,
-        panoramas=mapillary_panoramas(cached.profile.photos if cached else [], university.lat, university.lng),
     )

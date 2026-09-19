@@ -1,6 +1,6 @@
 import type { BuildingType, CampusMap } from "@/lib/types";
 
-export type MapMode = "2d" | "3d" | "walk";
+export type MapMode = "2d" | "3d";
 
 export type MapCamera = { zoom: number; bearing: number; tilt: number };
 
@@ -8,12 +8,11 @@ export type MapLayers = {
   types: Record<BuildingType, boolean>;
   pins: boolean;
   unconfirmedPins: boolean;
-  panoramas: boolean;
   transit: boolean;
 };
 
 /** Demo toggles from the design's «ТЕСТОВЫЕ СОСТОЯНИЯ» (prototype-only). */
-export type MapDemoFlags = { noPolygon: boolean; noHeights: boolean; noPano: boolean; no3d: boolean };
+export type MapDemoFlags = { noPolygon: boolean; noHeights: boolean; no3d: boolean };
 
 /**
  * Contract shared by the 2D and 3D renderers. The placeholders implement it with CSS;

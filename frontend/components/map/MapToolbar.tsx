@@ -11,7 +11,7 @@ type Props = {
   onRecenter: () => void;
 };
 
-const MODES: MapMode[] = ["2d", "3d", "walk"];
+const MODES: MapMode[] = ["2d", "3d"];
 
 export function MapToolbar({ mode, onMode, buildingQuery, onBuildingQuery, onRecenter }: Props) {
   const { t } = usePreferences();
