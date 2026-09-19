@@ -131,11 +131,11 @@ def test_first_photo_is_sent_before_the_collector_finishes(fake):
 def test_bbox_photo_sources_wait_briefly_for_campus_shape(fake):
     seen = {}
 
-    async def flickr(query, client, on_batch=None):
+    async def mapillary(query, client, on_batch=None):
         seen["bbox"] = query.bbox
-        return SourceResult(name="flickr", status="skipped", took_ms=0, detail="no key")
+        return SourceResult(name="mapillary", status="skipped", took_ms=0, detail="no key")
 
-    fake["set"]("flickr", flickr)
+    fake["set"]("mapillary", mapillary)
     parse_sse(run(get(f"/profile/{QID}?lang=en")).text)
     assert seen["bbox"] == (127.028, 37.586, 127.037, 37.593)
 

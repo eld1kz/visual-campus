@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import { GuideGreeting } from "@/components/guide/GuideGreeting";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { CampusMapSection } from "@/components/map/CampusMapSection";
@@ -27,9 +28,11 @@ type Props = {
   /** Live only: the backend marked the profile incomplete (done.partial). */
   partial?: boolean;
   params: URLSearchParams;
+  /** Live profiles: back to a new search. */
+  onBack?: () => void;
 };
 
-export function ProfileView({ profile, stats, live, partial = false, params }: Props) {
+export function ProfileView({ profile, stats, live, partial = false, params, onBack }: Props) {
   const { t } = usePreferences();
   const tabParam = params.get("tab");
   const initialTab: PhotoTab = CATEGORIES.includes(tabParam as PhotoCategory) ? (tabParam as PhotoCategory) : "all";
@@ -57,6 +60,11 @@ export function ProfileView({ profile, stats, live, partial = false, params }: P
 
   return (
     <div className="mx-auto max-w-[1240px] px-[22px] pb-[90px] pt-[30px]">
+      {onBack && (
+        <BackButton onClick={onBack} className="mb-3">
+          {t.navNewSearch}
+        </BackButton>
+      )}
       {live ? (
         <PartialBanner partial={partial} sources={profile.sources_status} />
       ) : (

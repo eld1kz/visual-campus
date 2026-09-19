@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/ui/BackButton";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { PhotoImage } from "@/components/photos/PhotoImage";
 import { photoAlt } from "@/components/photos/PhotoCard";
@@ -19,10 +20,12 @@ type Props = {
   elapsedMs: number | null;
   /** Replaces the title row, e.g. the error block after a broken stream. */
   header?: React.ReactNode;
+  /** Leave the build: closing the stream stops the sources on the server. */
+  onCancel?: () => void;
 };
 
 /** Live build of a profile: real source statuses and photos as the SSE stream delivers them. */
-export function ProfileLoading({ name, progress, elapsedMs, header }: Props) {
+export function ProfileLoading({ name, progress, elapsedMs, header, onCancel }: Props) {
   const { t } = usePreferences();
   const active = elapsedMs !== null;
   const sources = progress.sources.length
@@ -32,7 +35,12 @@ export function ProfileLoading({ name, progress, elapsedMs, header }: Props) {
   const shown = progress.photos.filter((p) => p.tier !== "unconfirmed");
 
   return (
-    <div className="mx-auto max-w-[1100px] px-[22px] pb-20 pt-11">
+    <div className="mx-auto max-w-[1100px] px-[22px] pb-20 pt-8">
+      {onCancel && (
+        <BackButton onClick={onCancel} className="mb-4">
+          {active ? t.navCancel : t.navNewSearch}
+        </BackButton>
+      )}
       {header ?? (
         <>
           <div className="mb-2 flex flex-wrap items-baseline gap-3.5">

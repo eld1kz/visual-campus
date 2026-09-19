@@ -11,6 +11,7 @@ const NAMES: Record<string, Partial<Record<Lang, string>>> = {
   mapillary: { ru: "Mapillary", en: "Mapillary" },
   official_site: { ru: "Официальный сайт", en: "Official website" },
   web_search: { ru: "Веб-поиск", en: "Web search" },
+  openverse: { ru: "Openverse", en: "Openverse" },
   "Официальный сайт": { en: "Official website" },
   "Веб-поиск": { en: "Web search" },
 };

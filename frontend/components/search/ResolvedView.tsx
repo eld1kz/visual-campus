@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BackButton } from "@/components/ui/BackButton";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { Button } from "@/components/ui/Button";
 import type { SourceStatus, UniversityCandidate } from "@/lib/types";
@@ -15,12 +16,17 @@ type Props = {
   sources: SourceStatus[];
   tookMs: number;
   onSearchAgain: () => void;
+  /** Set when the university was picked from several candidates. */
+  onBack?: () => void;
 };
 
-export function ResolvedView({ query, correctedQuery, university, sources, tookMs, onSearchAgain }: Props) {
+export function ResolvedView({ query, correctedQuery, university, sources, tookMs, onSearchAgain, onBack }: Props) {
   const { t } = usePreferences();
   return (
-    <div className="mx-auto max-w-[900px] px-[22px] pb-20 pt-14">
+    <div className="mx-auto max-w-[900px] px-[22px] pb-20 pt-8">
+      <BackButton onClick={onBack ?? onSearchAgain} className="mb-5">
+        {onBack ? t.navBackToChoices : t.navNewSearch}
+      </BackButton>
       <SourcesBanner sources={sources} />
       <QueryEcho query={query} corrected={correctedQuery} />
       <h2 className="mb-2 text-[28px] font-semibold tracking-[-0.02em]">{t.resolvedTitle}</h2>

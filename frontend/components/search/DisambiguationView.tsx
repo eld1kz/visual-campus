@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/ui/BackButton";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import type { SourceStatus, UniversityCandidate } from "@/lib/types";
 import { CandidateCard } from "./CandidateCard";
@@ -7,6 +8,7 @@ import { QueryEcho } from "./QueryEcho";
 import { SourcesBanner } from "./SourcesBanner";
 
 type Props = {
+  onBack: () => void;
   query: string;
   correctedQuery: string | null;
   candidates: UniversityCandidate[];
@@ -15,10 +17,13 @@ type Props = {
   onNoneOfThese: () => void;
 };
 
-export function DisambiguationView({ query, correctedQuery, candidates, sources, onChoose, onNoneOfThese }: Props) {
+export function DisambiguationView({ onBack, query, correctedQuery, candidates, sources, onChoose, onNoneOfThese }: Props) {
   const { t } = usePreferences();
   return (
     <div className="mx-auto max-w-[900px] px-[22px] pb-20 pt-14">
+      <BackButton onClick={onBack} className="mb-5">
+        {t.navNewSearch}
+      </BackButton>
       <SourcesBanner sources={sources} />
       <QueryEcho query={query} corrected={correctedQuery} />
       <h2 className="mb-2 text-[28px] font-semibold tracking-[-0.02em]">{t.disambTitle}</h2>

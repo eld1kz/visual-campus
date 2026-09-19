@@ -1,23 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import type { SourceStatus } from "@/lib/types";
 import { SearchForm } from "./SearchForm";
 import { SourcesBanner } from "./SourcesBanner";
 
 type Props = {
+  onBack: () => void;
   query: string;
   sources: SourceStatus[];
   onSearch: (query: string) => void;
 };
 
-export function NotFoundView({ query, sources, onSearch }: Props) {
+export function NotFoundView({ onBack, query, sources, onSearch }: Props) {
   const { t } = usePreferences();
   const [value, setValue] = useState(query);
 
   return (
     <div className="mx-auto max-w-[620px] px-[22px] pb-20 pt-[12vh]">
+      <BackButton onClick={onBack} className="mb-5">
+        {t.navHome}
+      </BackButton>
       <SourcesBanner sources={sources} />
       <div className="mb-[18px] flex size-[38px] items-center justify-center rounded-full bg-surface-2 text-[17px] text-ink-3">
         ?

@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/ui/BackButton";
 import { usePreferences } from "@/components/layout/PreferencesProvider";
 import { SearchForm } from "./SearchForm";
 
@@ -10,9 +11,10 @@ type Props = {
   onQueryChange: (value: string) => void;
   onSearch: (query: string) => void;
   busy: boolean;
+  onCancel: () => void;
 };
 
-export function SearchHero({ query, onQueryChange, onSearch, busy }: Props) {
+export function SearchHero({ query, onQueryChange, onSearch, busy, onCancel }: Props) {
   const { t } = usePreferences();
 
   return (
@@ -26,7 +28,12 @@ export function SearchHero({ query, onQueryChange, onSearch, busy }: Props) {
 
       <div className="mt-[18px] flex flex-wrap items-center gap-2">
         {busy ? (
-          <span className="animate-vc-pulse font-mono text-xs tracking-[.04em] text-accent">{t.searchingNote}…</span>
+          <>
+            <span className="animate-vc-pulse font-mono text-xs tracking-[.04em] text-accent">{t.searchingNote}…</span>
+            <BackButton onClick={onCancel} className="ml-2">
+              {t.navCancel}
+            </BackButton>
+          </>
         ) : (
           <>
             <span className="font-mono text-xs tracking-[.04em] text-ink-3">{t.examples}</span>

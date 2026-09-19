@@ -24,7 +24,7 @@ from app.services.pipeline import CampusContext, Deduplicator, batch_vision_chec
 from app.services.pipeline.claude_vision import claude_vision_check
 from app.services.pipeline.ranking import select_targets
 from app.services.query_planner import build_query_plan
-from app.services.sources import commons, flickr, mapillary, official_site, openverse, osm, run_source, web_search
+from app.services.sources import commons, mapillary, official_site, openverse, osm, run_source, web_search
 from app.services.sources.base import SourceQuery
 from app.services.sources.geo import distance_m
 from app.services.summary import SourceText, build_summary, extract_summary
@@ -46,13 +46,14 @@ GAP_CATEGORIES = ("dorms", "libraries", "classrooms")
 GAP_MIN_RELIABLE = 3
 CLAUDE_VISION_S = 14.0  # budget of the batched Claude check, which runs in parallel with OpenCLIP  # short head-start for OSM so bbox-based photo sources can use the campus outline on cold cache
 
+# Flickr is off: its API needs a paid Pro account. The collector stays in sources/flickr.py; add "flickr" here
+# and to PHOTO_COLLECTORS to turn it back on.
 SOURCE_NAMES = [
-    "wikidata", "openstreetmap", "wikimedia_commons", "wikipedia", "flickr", "mapillary", "official_site",
+    "wikidata", "openstreetmap", "wikimedia_commons", "wikipedia", "mapillary", "official_site",
     "openverse", "web_search",
 ]
 PHOTO_COLLECTORS = {
     "wikimedia_commons": commons.collect,
-    "flickr": flickr.collect,
     "mapillary": mapillary.collect,
     "official_site": official_site.collect,
     "openverse": openverse.collect,
@@ -283,7 +284,7 @@ class ProfileBuild:
             self._finish(SourceResult(name="openstreetmap", status="ok", took_ms=0, detail="cached shape"))
         else:
             tasks["openstreetmap"] = self._spawn(self._guard("openstreetmap", self._osm(query, client)))
-        deferred = {"flickr", "mapillary", "openverse", "web_search"}
+        deferred = {"mapillary", "openverse", "web_search"}
         if not query.commons_category:
             deferred.add("wikimedia_commons")
         for name, collect in PHOTO_COLLECTORS.items():

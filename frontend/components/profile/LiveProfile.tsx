@@ -38,7 +38,10 @@ export function LiveProfile({ wikidataId, name, params }: { wikidataId: string; 
     return () => setAvailable(true);
   }, [setAvailable]);
 
-  if (state.kind === "loading") return <ProfileLoading name={name} progress={state.progress} elapsedMs={state.elapsedMs} />;
+  const home = () => router.push("/");
+  if (state.kind === "loading") {
+    return <ProfileLoading name={name} progress={state.progress} elapsedMs={state.elapsedMs} onCancel={home} />;
+  }
   if (state.kind === "error") {
     const view = (
       <ServerErrorView
@@ -56,6 +59,7 @@ export function LiveProfile({ wikidataId, name, params }: { wikidataId: string; 
         name={name}
         progress={state.progress}
         elapsedMs={null}
+        onCancel={home}
         header={
           <>
             {view}
@@ -66,5 +70,5 @@ export function LiveProfile({ wikidataId, name, params }: { wikidataId: string; 
     );
   }
   const { profile, stats, partial } = state.ready;
-  return <ProfileView profile={profile} stats={stats} live partial={partial} params={params} />;
+  return <ProfileView profile={profile} stats={stats} live partial={partial} params={params} onBack={home} />;
 }

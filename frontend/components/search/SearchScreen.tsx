@@ -47,7 +47,10 @@ export function SearchScreen() {
     }
   }
 
-  const reset = () => setState({ kind: "idle" });
+  const reset = () => {
+    inFlight.current?.abort();
+    setState({ kind: "idle" });
+  };
 
   if (state.kind === "error") {
     return <ServerErrorView code={errorCode(state.error)} onRetry={() => search(state.query)} onBack={reset} />;
@@ -64,6 +67,7 @@ export function SearchScreen() {
           sources={data.sources_status}
           tookMs={data.took_ms}
           onSearchAgain={reset}
+          onBack={data.status === "ambiguous" ? () => setState({ kind: "result", data, chosen: null }) : undefined}
         />
       );
     }
@@ -76,11 +80,12 @@ export function SearchScreen() {
           sources={data.sources_status}
           onChoose={(candidate) => setState({ kind: "result", data, chosen: candidate })}
           onNoneOfThese={() => setState({ kind: "result", data: { ...data, status: "not_found" }, chosen: null })}
+          onBack={reset}
         />
       );
     }
-    return <NotFoundView query={data.query} sources={data.sources_status} onSearch={search} />;
+    return <NotFoundView query={data.query} sources={data.sources_status} onSearch={search} onBack={reset} />;
   }
 
-  return <SearchHero query={query} onQueryChange={setQuery} onSearch={search} busy={state.kind === "loading"} />;
+  return <SearchHero query={query} onQueryChange={setQuery} onSearch={search} busy={state.kind === "loading"} onCancel={reset} />;
 }
