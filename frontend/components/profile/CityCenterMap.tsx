@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { usePreferences } from "@/components/layout/PreferencesProvider";
+import { loadMaplibre, mapStyleUrl } from "@/lib/maplibre";
 import type { ProfileUniversity } from "@/lib/types";
 
-const STYLE_URL = "https://tiles.openfreemap.org/styles/positron";
 const CAMPUS_COLOR = "#4f5bd5";
 const CENTER_COLOR = "#e0533d";
 
@@ -13,17 +14,15 @@ type Props = { university: ProfileUniversity };
 /** Mini-map you can drag and zoom: campus point, city centre point and the road route (or a straight line). */
 export function CityCenterMap({ university }: Props) {
   const container = useRef<HTMLDivElement>(null);
+  const { theme } = usePreferences(); // the map style follows the site theme
   const { lat, lng, city_center: center, center_route: route } = university;
 
   useEffect(() => {
     if (!container.current || lat == null || lng == null || !center) return;
     let map: import("maplibre-gl").Map | undefined;
     let cancelled = false;
-    import("maplibre-gl").then((maplibregl) => {
+    loadMaplibre().then((maplibregl) => {
       if (cancelled || !container.current) return;
-      // Next bundles maplibre without an http import.meta.url, so its worker URL resolves to the page itself and
-      // tiles never load. The worker files are copied to public/maplibre by the postinstall script.
-      maplibregl.setWorkerUrl(`${window.location.origin}/maplibre/maplibre-gl-worker.mjs`);
       const line: [number, number][] = route?.geometry.length
         ? (route.geometry as [number, number][])
         : [[lng, lat], [center.lng, center.lat]];
@@ -33,7 +32,7 @@ export function CityCenterMap({ university }: Props) {
       ).extend([center.lng, center.lat]);
       const instance = new maplibregl.Map({
         container: container.current,
-        style: STYLE_URL,
+        style: mapStyleUrl(),
         bounds,
         fitBoundsOptions: { padding: { top: 44, bottom: 24, left: 32, right: 32 } },  // pins point down: room on top
         // Drag and pinch work directly; the mouse wheel zooms only with Ctrl/⌘ so the page still scrolls.
@@ -65,7 +64,7 @@ export function CityCenterMap({ university }: Props) {
       cancelled = true;
       map?.remove();
     };
-  }, [lat, lng, center, route]);
+  }, [lat, lng, center, route, theme]);
 
   return <div ref={container} className="h-[190px] overflow-hidden rounded-[18px] bg-surface-2" />;
 }

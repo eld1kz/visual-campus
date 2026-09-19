@@ -10,7 +10,7 @@ export function CandidateCard({ candidate, onChoose }: { candidate: UniversityCa
   const { t } = usePreferences();
   return (
     <div className="flex gap-3.5 rounded-[18px] bg-surface-2 p-4">
-      <MiniMapThumb />
+      <MiniMapThumb lat={candidate.lat} lng={candidate.lng} width={110} height={96} />
       <div className="flex min-w-0 flex-col gap-[5px]">
         <div className="text-[15px] font-semibold leading-tight">{candidate.name}</div>
         <div className="text-[13px] text-ink-2">{placeOf(candidate)}</div>

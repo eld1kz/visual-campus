@@ -30,7 +30,7 @@ export function UniversityCard({ university }: { university: UniversityCandidate
 
   return (
     <div className="flex flex-wrap gap-[18px] rounded-[18px] bg-surface-2 p-[18px] animate-vc-in">
-      <MiniMapThumb size={120} />
+      <MiniMapThumb lat={u.lat} lng={u.lng} width={240} height={170} />
       <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-[7px]">
         <div className="text-[19px] font-semibold leading-tight tracking-[-0.01em]">{u.name}</div>
         <div className="flex flex-wrap items-center gap-3.5 text-sm text-ink-2">
