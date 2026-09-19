@@ -8,6 +8,28 @@ const RESOLVE_TIMEOUT_MS = 20_000;
 /** Building a profile queries four sources; the backend budget is ≤30 s. */
 const PROFILE_TIMEOUT_MS = 45_000;
 
+const CLIENT_ID_KEY = "vc-client-id";
+
+/** Anonymous per-browser id: the backend's daily AI limit is counted per user (X-Client-Id, else the IP). */
+function clientId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    let id = window.localStorage.getItem(CLIENT_ID_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      window.localStorage.setItem(CLIENT_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return null; // private mode or blocked storage: the backend falls back to the IP
+  }
+}
+
+function clientHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const id = clientId();
+  return id ? { ...extra, "X-Client-Id": id } : extra;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -86,7 +108,7 @@ async function request(path: string, timeoutMs: number, signal?: AbortSignal): P
   const timeout = AbortSignal.timeout(timeoutMs);
   let response: Response;
   try {
-    response = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+    response = await fetch(url, { headers: clientHeaders(), signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
   } catch (err) {
     if (signal?.aborted) throw err;
     throw new ApiError(`Network error: ${(err as Error).message}`, "network");
@@ -115,7 +137,7 @@ export async function askGuide(
   try {
     response = await fetch(`${API_URL}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: clientHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });

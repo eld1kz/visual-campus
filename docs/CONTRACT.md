@@ -335,10 +335,10 @@ data: <одна строка JSON>
 
 Claude Haiku отвечает только по пронумерованным фактам собранного профиля (кэш): данные Wikidata, резюме и его
 источник, расстояние и маршрут до центра, площадь контура, число надёжных фото по категориям. Нет ответа в фактах →
-`dont_know`, пустые `citations`, заполненный `checked`. Профиля нет в кэше → `404` с `detail`. Дневной лимит ИИ
+`dont_know`, пустые `citations`, заполненный `checked`. Профиля нет в кэше → `404` с `detail`. Лимит ИИ пользователя или общий
 исчерпан или Claude недоступен → `200` с `dont_know` и объяснением, без вызова модели.
 
-`GET /ai/usage` — расход Claude за сегодня: `{date, usd, calls, input_tokens, output_tokens, budget_usd, remaining_usd}`.
+`GET /ai/usage` — расход Claude за сегодня для текущего пользователя (`X-Client-Id` или IP): `{date, user_usd, user_budget_usd, user_remaining_usd, total_usd, global_budget_usd, users_today, calls}`.
 
 ---
 
@@ -458,7 +458,8 @@ class Deduplicator:                  # состояние на один проф
 | `OPENVERSE_CLIENT_ID`, `OPENVERSE_CLIENT_SECRET` | Openverse | анонимно: 20 результатов/запрос и низкий rate limit |
 | `VISION_ENABLED` | локальный OpenCLIP | `0`: фото остаются `vision_checked=false`, tier максимум `likely` |
 | `VISION_MAX_CANDIDATES` | локальный OpenCLIP | по умолчанию сначала проверяются 140 лучших кандидатов |
-| `AI_DAILY_BUDGET_USD` | все вызовы Claude | дневной лимит расходов в USD (по умолчанию 2): проверка фото, резюме, чат; после лимита — OpenCLIP, Википедия и честный ответ гида. `0` выключает Claude |
+| `AI_USER_DAILY_BUDGET_USD` | все вызовы Claude | дневной лимит на пользователя в USD (по умолчанию 1). Пользователь — анонимный id браузера из заголовка `X-Client-Id`, иначе IP. Сборку профиля оплачивает тот, кто её запустил; открытие из кэша бесплатно |
+| `AI_DAILY_BUDGET_USD` | все вызовы Claude | общий дневной потолок в USD (по умолчанию 20). После любого лимита — OpenCLIP, Википедия и честный ответ гида; `0` выключает Claude |
 | `PHOTO_TARGETS` | финальный отбор | пусто по умолчанию: все надёжные фото; `campus=60,dorms=20` — необязательный потолок на категорию |
 | `KAKAO_API_KEY` | map-agent | Kakao не проверяется |
 | `LLM_API_KEY` | api-agent (резюме), verify-agent (vision), mascot-agent (чат) | резюме из Wikipedia без LLM; без vision; чат отвечает поиском по текстам или `dont_know` |

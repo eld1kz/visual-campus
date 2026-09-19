@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.services import ai_budget
 from app.routers import ai, campus, chat, health, profile, resolve
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -20,6 +21,18 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def ai_user(request: Request, call_next):
+    """Who pays for Claude calls made while serving this request (see services/ai_budget.py)."""
+    client_id = (request.headers.get("x-client-id") or "").strip()[:64]
+    user = f"id:{client_id}" if client_id else f"ip:{request.client.host if request.client else 'unknown'}"
+    token = ai_budget.current_user.set(user)
+    try:
+        return await call_next(request)
+    finally:
+        ai_budget.current_user.reset(token)
 
 
 @app.middleware("http")

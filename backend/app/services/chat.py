@@ -67,9 +67,12 @@ def facts(profile: ProfileResponse, lang: str) -> tuple[str, list[Citation]]:
 
 def not_available(req: ChatRequest, reason: str) -> ChatReply:
     text = {
-        "ru": "Сейчас я не могу ответить: лимит ИИ на сегодня исчерпан. Всё собранное можно посмотреть в профиле.",
-        "en": "I can't answer right now: today's AI limit is used up. Everything collected is in the profile.",
-    }[req.lang] if reason == "budget" else {
+        "ru": "Ваш лимит вопросов к ИИ на сегодня исчерпан, завтра он обновится. Всё собранное есть в профиле.",
+        "en": "Your AI limit for today is used up; it resets tomorrow. Everything collected is in the profile.",
+    }[req.lang] if reason == "user" else {
+        "ru": "Сейчас я не могу ответить: общий лимит ИИ на сегодня исчерпан. Всё собранное есть в профиле.",
+        "en": "I can't answer right now: today's overall AI limit is used up. Everything collected is in the profile.",
+    }[req.lang] if reason == "global" else {
         "ru": "Не получилось ответить. Попробуйте ещё раз чуть позже.",
         "en": "I couldn't answer. Please try again a bit later.",
     }[req.lang]
@@ -82,8 +85,8 @@ async def answer(req: ChatRequest, profile: ProfileResponse) -> ChatReply:
         return not_available(req, "error")
     try:
         ai_budget.check()
-    except ai_budget.BudgetExceeded:
-        return not_available(req, "budget")
+    except ai_budget.BudgetExceeded as exc:
+        return not_available(req, exc.scope)
     _client = _client or anthropic.AsyncAnthropic(api_key=settings.llm_api_key, max_retries=1)
     fact_text, cites = facts(profile, req.lang)
     system = SYSTEM.format(name=profile.university.name, language="Russian" if req.lang == "ru" else "English",

@@ -55,8 +55,31 @@ def test_budget_reached_gives_an_honest_reply_without_calling_claude(fake, monke
     monkeypatch.setattr(chat, "settings", dataclasses.replace(chat.settings, llm_api_key="k"))
 
     def exhausted():
-        raise ai_budget.BudgetExceeded("spent")
+        raise ai_budget.BudgetExceeded("spent", "user")
 
     monkeypatch.setattr(ai_budget, "check", exhausted)
     reply = run(chat.answer(ChatRequest(wikidata_id=QID, message="Общежития?"), profile))
     assert reply.mascot_state == "dont_know" and "лимит" in reply.text
+
+
+def test_chat_cost_is_charged_to_the_browser_that_asked(fake, monkeypatch, tmp_path):
+    build_profile()
+    monkeypatch.setattr(ai_budget, "USAGE_FILE", tmp_path / "usage.json")
+    monkeypatch.setattr(chat, "settings", dataclasses.replace(chat.settings, llm_api_key="k"))
+
+    class Messages:
+        async def create(self, **kwargs):
+            body = {"text": "Да.", "found": True, "sources": [1], "tab": "none"}
+            return SimpleNamespace(stop_reason="end_turn", usage=SimpleNamespace(input_tokens=1000, output_tokens=0),
+                                   content=[SimpleNamespace(type="text", text=json.dumps(body))])
+
+    monkeypatch.setattr(chat, "_client", SimpleNamespace(messages=Messages()))
+
+    async def ask():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/chat", json={"wikidata_id": QID, "lang": "ru", "message": "Кампус?"},
+                              headers={"X-Client-Id": "browser-42"})
+            return (await client.get("/ai/usage", headers={"X-Client-Id": "browser-42"})).json()
+
+    usage = run(ask())
+    assert usage["user_usd"] == 0.001 and usage["users_today"] == 1
