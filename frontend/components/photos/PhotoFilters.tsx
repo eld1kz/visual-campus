@@ -9,18 +9,9 @@ type Props = {
   onToggleTag: (tag: PhotoTag) => void;
   sort: PhotoSort;
   onSort: (sort: PhotoSort) => void;
-  showUnconfirmed: boolean;
-  onToggleUnconfirmed: () => void;
-  showHistoric: boolean;
-  onToggleHistoric: () => void;
 };
 
-const toggle = (on: boolean) =>
-  `flex cursor-pointer items-center gap-[7px] whitespace-nowrap rounded-full px-3 py-1.5 text-xs ${
-    on ? "bg-accent-soft text-accent" : "bg-surface-2 text-ink-2"
-  }`;
-
-export function PhotoFilters({ tags, onToggleTag, sort, onSort, showUnconfirmed, onToggleUnconfirmed, showHistoric, onToggleHistoric }: Props) {
+export function PhotoFilters({ tags, onToggleTag, sort, onSort }: Props) {
   const { t } = usePreferences();
 
   return (
@@ -48,14 +39,6 @@ export function PhotoFilters({ tags, onToggleTag, sort, onSort, showUnconfirmed,
           <option value="confidence">{t.sortConf}</option>
           <option value="date">{t.sortDate}</option>
         </select>
-        <label className={toggle(showUnconfirmed)}>
-          <input type="checkbox" checked={showUnconfirmed} onChange={onToggleUnconfirmed} className="m-0 accent-accent" />
-          <span>{t.unconfirmedShort}</span>
-        </label>
-        <label className={toggle(showHistoric)}>
-          <input type="checkbox" checked={showHistoric} onChange={onToggleHistoric} className="m-0 accent-accent" />
-          <span>{t.historicShort}</span>
-        </label>
       </div>
     </div>
   );

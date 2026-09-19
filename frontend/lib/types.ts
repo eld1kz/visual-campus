@@ -261,4 +261,6 @@ export type ChatMessage = {
   actions?: ChatAction[];
   /** Set when the answer is "not in the sources": lists what was checked. */
   checked?: string | null;
+  /** Answered by a web search, not from the collected profile. */
+  from_web?: boolean;
 };

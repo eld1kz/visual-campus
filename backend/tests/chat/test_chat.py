@@ -83,3 +83,29 @@ def test_chat_cost_is_charged_to_the_browser_that_asked(fake, monkeypatch, tmp_p
 
     usage = run(ask())
     assert usage["user_usd"] == 0.001 and usage["users_today"] == 1
+
+
+def test_no_answer_in_the_profile_falls_back_to_a_web_search(fake, monkeypatch):
+    profile = build_profile()
+    monkeypatch.setattr(chat, "settings", dataclasses.replace(chat.settings, llm_api_key="k", chat_web_search=True))
+    monkeypatch.setattr(ai_budget, "check", lambda: None)
+    monkeypatch.setattr(ai_budget, "record", lambda *a: 0.0)
+    usage = SimpleNamespace(input_tokens=10, output_tokens=5, server_tool_use=SimpleNamespace(web_search_requests=1))
+
+    class Messages:
+        async def create(self, **kwargs):
+            if "tools" not in kwargs:  # first call: the facts do not answer
+                body = {"text": "Нет данных.", "found": False, "sources": [], "tab": "none"}
+                return SimpleNamespace(stop_reason="end_turn", usage=usage,
+                                       content=[SimpleNamespace(type="text", text=json.dumps(body))])
+            cite = SimpleNamespace(url="https://www.korea.ac.kr/tuition", title="Tuition")
+            return SimpleNamespace(stop_reason="end_turn", usage=usage, content=[
+                SimpleNamespace(type="text", text="Сейчас поищу.", citations=None),
+                SimpleNamespace(type="web_search_tool_result"),
+                SimpleNamespace(type="text", text="Обучение стоит 5 млн вон в семестр.", citations=[cite]),
+            ])
+
+    monkeypatch.setattr(chat, "_client", SimpleNamespace(messages=Messages()))
+    reply = run(chat.answer(ChatRequest(wikidata_id=QID, message="Сколько стоит обучение?"), profile))
+    assert reply.from_web and reply.text == "Обучение стоит 5 млн вон в семестр."
+    assert [c.url for c in reply.citations] == ["https://www.korea.ac.kr/tuition"]

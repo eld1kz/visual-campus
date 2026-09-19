@@ -329,13 +329,14 @@ data: <одна строка JSON>
   "mascot_state": "pointing",          // "talking" | "pointing" | "dont_know"
   "citations": [ { "n": 1, "title": "…", "url": "…" } ],
   "actions": [ { "type": "tab", "tab": "dorms" } ],
-  "checked": null                      // при dont_know — строка: какие источники проверены
+  "checked": null,                     // при dont_know — строка: какие источники проверены
+  "from_web": false                    // true — ответ найден поиском в интернете, а не в собранном профиле
 }
 ```
 
 Claude Haiku отвечает только по пронумерованным фактам собранного профиля (кэш): данные Wikidata, резюме и его
 источник, расстояние и маршрут до центра, площадь контура, число надёжных фото по категориям. Нет ответа в фактах →
-`dont_know`, пустые `citations`, заполненный `checked`. Профиля нет в кэше → `404` с `detail`. Лимит ИИ пользователя или общий
+`dont_know`, пустые `citations`, заполненный `checked` — но сначала, если включён `CHAT_WEB_SEARCH`, второй запрос с серверным инструментом `web_search_20250305` (до 3 поисков, приоритет официальному сайту): ответ с `from_web: true`, `citations` — найденные страницы. Профиля нет в кэше → `404` с `detail`. Лимит ИИ пользователя или общий
 исчерпан или Claude недоступен → `200` с `dont_know` и объяснением, без вызова модели.
 
 `GET /ai/usage` — расход Claude за сегодня для текущего пользователя (`X-Client-Id` или IP): `{date, user_usd, user_budget_usd, user_remaining_usd, total_usd, global_budget_usd, users_today, calls}`.

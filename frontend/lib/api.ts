@@ -125,7 +125,7 @@ async function getJson<T>(path: string, timeoutMs: number, signal?: AbortSignal)
   return (await request(path, timeoutMs, signal)).json();
 }
 
-const CHAT_TIMEOUT_MS = 20_000;
+const CHAT_TIMEOUT_MS = 50_000; // a web search answer takes 5–15 s
 
 /** POST /chat — Kampi answers about a profile built in the last 30 minutes, only from its collected data. */
 export async function askGuide(

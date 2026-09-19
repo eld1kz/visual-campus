@@ -63,6 +63,12 @@ export function ChatMessageItem({ message, onAction }: Props) {
 
       {done && message.checked && <div className="text-xs leading-normal text-ink-3">{message.checked}</div>}
 
+      {done && message.from_web && (
+        <div className="self-start rounded-full bg-surface-2 px-2.5 py-1 font-mono text-[10.5px] tracking-[.04em] text-ink-3">
+          {t.guide.fromWeb}
+        </div>
+      )}
+
       {done && message.citations && message.citations.length > 0 && (
         <div className="flex flex-col gap-1">
           <div className="micro-label text-[10px] tracking-[.07em]">{t.guide.sources}</div>

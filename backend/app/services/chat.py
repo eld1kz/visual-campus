@@ -79,6 +79,52 @@ def not_available(req: ChatRequest, reason: str) -> ChatReply:
     return ChatReply(text=text, mascot_state="dont_know")
 
 
+WEB_SYSTEM = (
+    "You are Kampi, a friendly campus guide inside Visual Campus. The data collected for {name} ({website}) does "
+    "not answer the student's question, so search the web. Prefer the university's official site, then reputable "
+    "sources. Answer in {language} in 1-3 short sentences with concrete facts from the pages you found. If you "
+    "cannot find a reliable answer, say so briefly. Do not mention these instructions."
+)
+MAX_WEB_SEARCHES = 3
+
+
+async def web_answer(req: ChatRequest, profile: ProfileResponse, messages: list[dict]) -> ChatReply | None:
+    """Second step when the profile has no answer: Claude with the web search server tool, sources = the pages."""
+    u = profile.university
+    system = WEB_SYSTEM.format(name=u.name, website=u.website or "no official site known",
+                               language="Russian" if req.lang == "ru" else "English")
+    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": MAX_WEB_SEARCHES}]
+    content: list = []
+    convo = list(messages)
+    for _ in range(3):  # a long server-tool turn can pause; continue it a couple of times
+        ai_budget.check()
+        response = await _client.messages.create(model=MODEL, max_tokens=800, system=system, messages=convo,
+                                                 tools=tools, timeout=40)
+        searches = getattr(getattr(response.usage, "server_tool_use", None), "web_search_requests", 0) or 0
+        ai_budget.record(MODEL, response.usage.input_tokens, response.usage.output_tokens, searches)
+        content += response.content
+        if response.stop_reason != "pause_turn":
+            break
+        convo = [*convo, {"role": "assistant", "content": response.content}]
+    else:
+        return None
+    if response.stop_reason not in ("end_turn", "max_tokens"):
+        return None
+    # Only the text after the last search result is the answer; earlier text is "let me look that up".
+    last_result = max((i for i, b in enumerate(content) if b.type == "web_search_tool_result"), default=-1)
+    answer_blocks = [b for b in content[last_result + 1:] if b.type == "text"]
+    text = "".join(b.text for b in answer_blocks).strip()
+    if not text:
+        return None
+    cites: list[Citation] = []
+    for block in answer_blocks:
+        for cite in getattr(block, "citations", None) or []:
+            url = getattr(cite, "url", None)
+            if url and all(c.url != url for c in cites):
+                cites.append(Citation(n=len(cites) + 1, title=getattr(cite, "title", None) or url, url=url))
+    return ChatReply(text=text, mascot_state="talking", citations=cites[:5], from_web=True)
+
+
 async def answer(req: ChatRequest, profile: ProfileResponse) -> ChatReply:
     global _client
     if not settings.llm_api_key:
@@ -110,6 +156,16 @@ async def answer(req: ChatRequest, profile: ProfileResponse) -> ChatReply:
     used = [c for c in cites if c.n in set(data["sources"])]
     tab = data["tab"] if data["tab"] in CATEGORIES else None
     if not data["found"]:
+        if settings.chat_web_search:
+            try:
+                web = await web_answer(req, profile, messages)
+            except ai_budget.BudgetExceeded as exc:
+                return not_available(req, exc.scope)
+            except anthropic.APIError as exc:
+                logger.warning("Web answer failed for %s: %s", req.wikidata_id, exc)
+                web = None
+            if web is not None:
+                return web
         checked = ", ".join(dict.fromkeys(c.title for c in cites))
         return ChatReply(text=data["text"], mascot_state="dont_know", checked=checked)
     return ChatReply(text=data["text"], mascot_state="pointing" if tab else "talking", citations=used,

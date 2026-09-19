@@ -24,6 +24,8 @@ class Settings:
     claude_vision_max: int = int(os.getenv("CLAUDE_VISION_MAX", "200"))
     # Claude spending caps per day, USD (photo check + summary + guide chat): per user and a global ceiling.
     ai_user_daily_budget_usd: float = float(os.getenv("AI_USER_DAILY_BUDGET_USD", "1"))
+    # Kampi searches the web when the collected profile does not answer (costs ~$0.01 per search).
+    chat_web_search: bool = os.getenv("CHAT_WEB_SEARCH", "1").lower() not in ("0", "false", "no")
     ai_daily_budget_usd: float = float(os.getenv("AI_DAILY_BUDGET_USD", "20"))
     # Optional cap on reliable photos per category ("campus=60,dorms=20"); empty = keep them all.
     photo_targets: str = os.getenv("PHOTO_TARGETS", "")

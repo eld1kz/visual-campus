@@ -78,10 +78,13 @@ def check() -> None:
         raise BudgetExceeded(f"global daily AI budget ${settings.ai_daily_budget_usd:g} reached", "global")
 
 
-def record(model: str, input_tokens: int, output_tokens: int) -> float:
+WEB_SEARCH_USD = 0.01  # per search: $10 per 1,000 searches
+
+
+def record(model: str, input_tokens: int, output_tokens: int, web_searches: int = 0) -> float:
     """Add one response's cost to the current user and the day total; returns it in USD."""
     price_in, price_out = PRICES.get(model, PRICES["claude-opus-5"])  # unknown model: count it as the dearest
-    cost = (input_tokens * price_in + output_tokens * price_out) / 1_000_000
+    cost = (input_tokens * price_in + output_tokens * price_out) / 1_000_000 + web_searches * WEB_SEARCH_USD
     user = current_user.get()
     with _lock:
         data = _load()

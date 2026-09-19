@@ -24,8 +24,9 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
   const [tab, setTab] = useState<PhotoTab>(initialTab);
   const [tags, setTags] = useState<PhotoTag[]>([]);
   const [sort, setSort] = useState<PhotoSort>("recommended");
-  const [showUnconfirmed, setShowUnconfirmed] = useState(false);
-  const [showHistoric, setShowHistoric] = useState(false);
+  // No toggles: unconfirmed photos stay hidden (only checked photos are shown), historic ones show with their year.
+  const showUnconfirmed = false;
+  const showHistoric = true;
 
   const visible = filterPhotos(photos, { tab, tags, sort, showUnconfirmed, showHistoric });
   // Paging restarts whenever the tab or a filter changes.
@@ -49,21 +50,10 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
         onToggleTag={(tag) => setTags((cur) => (cur.includes(tag) ? cur.filter((x) => x !== tag) : [...cur, tag]))}
         sort={sort}
         onSort={setSort}
-        showUnconfirmed={showUnconfirmed}
-        onToggleUnconfirmed={() => setShowUnconfirmed((v) => !v)}
-        showHistoric={showHistoric}
-        onToggleHistoric={() => setShowHistoric((v) => !v)}
       />
 
       {tab !== "all" && !inTab.some((p) => p.freshness === "2024_plus" && p.tier !== "unconfirmed") && inTab.length > 0 && (
         <div className="mb-4 rounded-xl bg-surface-2 px-4 py-3 text-[12.5px] text-ink-2">{t.noRecentPhotos}</div>
-      )}
-
-      {showUnconfirmed && (
-        <div className="mb-4 flex items-center gap-[9px] rounded-full bg-surface-2 px-[15px] py-[11px] text-[12.5px] text-ink-2">
-          <span className="text-mute">?</span>
-          <span>{t.tierWarn}</span>
-        </div>
       )}
 
       {visible.length === 0 ? (
@@ -72,7 +62,6 @@ export function PhotosSection({ photos, sources, initialTab = "all", onOpen }: P
           noPhotos={photos.length === 0}
           hiddenUnconfirmed={hiddenUnconfirmed}
           filteredOut={filteredOut}
-          onShowUnconfirmed={hiddenUnconfirmed > 0 ? () => setShowUnconfirmed(true) : undefined}
           onClearFilters={tags.length > 0 ? () => setTags([]) : undefined}
         />
       ) : (

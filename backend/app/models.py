@@ -380,3 +380,4 @@ class ChatReply(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     actions: list[ChatAction] = Field(default_factory=list)
     checked: str | None = Field(default=None, description="When the answer is not in the sources: what was checked")
+    from_web: bool = Field(default=False, description="Answered by a web search, not from the collected profile")
