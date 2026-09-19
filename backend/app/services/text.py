@@ -51,3 +51,28 @@ def similarity(query: str, name: str) -> float:
 
 def best_similarity(query: str, names: list[str]) -> float:
     return max((similarity(query, n) for n in names if n), default=0.0)
+
+
+# A sentence ends at . ! ? followed by space, except after an initial ("Н. А. Назарбаев", "J. F. Kennedy")
+# or a common abbreviation ("им.", "г.", "St.", "e.g.").
+_ABBREVIATIONS = {"им", "г", "гг", "ул", "пр", "т", "е", "др", "св", "st", "dr", "mr", "mrs", "prof", "e.g", "i.e", "vs", "no"}
+_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
+
+
+def split_sentences(text: str) -> list[str]:
+    parts = _BOUNDARY.split(text.strip())
+    sentences: list[str] = []
+    for part in parts:
+        if sentences:
+            last_word = sentences[-1].rsplit(None, 1)[-1].rstrip(".").lower()
+            # "...campus. [1] Next": a footnote after the full stop belongs to the previous sentence.
+            if part.startswith("[") and (m := re.match(r"(\[\d+\])+", part)):
+                sentences[-1] += " " + m.group(0)
+                part = part[m.end():].strip()
+                if not part:
+                    continue
+            elif (len(last_word) == 1 and last_word.isalpha()) or last_word in _ABBREVIATIONS:
+                sentences[-1] += " " + part
+                continue
+        sentences.append(part)
+    return [s for s in sentences if s]

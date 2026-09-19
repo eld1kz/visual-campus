@@ -4,6 +4,7 @@ One `ProfileBuild` per (qid, lang) at a time (single-flight via cache.inflight);
 """
 
 import asyncio
+from collections import Counter
 import inspect
 import logging
 import time
@@ -40,6 +41,9 @@ SOURCE_TIMEOUT_S = 8.0  # outer guard; collectors stop themselves at 7.5 s
 WIKIPEDIA_TIMEOUT_S = 6.0
 HTTP_TIMEOUT_S = 8.0
 SHAPE_WAIT_S = 1.5
+GAP_FILL_S = 3.0  # targeted searches for empty categories
+GAP_CATEGORIES = ("dorms", "libraries", "classrooms")
+GAP_MIN_RELIABLE = 3
 CLAUDE_VISION_S = 14.0  # budget of the batched Claude check, which runs in parallel with OpenCLIP  # short head-start for OSM so bbox-based photo sources can use the campus outline on cold cache
 
 SOURCE_NAMES = [
@@ -305,6 +309,9 @@ class ProfileBuild:
                 if task in pending:
                     self._finish(SourceResult(name=name, status="timeout", took_ms=_ms(sources_started)))
 
+        # The Claude check adapts to the time left; it needs ~8 s for a useful pass after the gap searches.
+        if self._left() > GAP_FILL_S + 8:
+            await self._fill_gaps(photo_query if deferred else query, client)
         if self._left() > 1.5:
             await self._vision(client)
 
@@ -408,6 +415,20 @@ class ProfileBuild:
                 result = self.results.get(name)
                 if result is not None and self._count(name) != self.counts.get(name):
                     self._finish(result)
+
+    async def _fill_gaps(self, query: SourceQuery, client: httpx.AsyncClient) -> None:
+        """A category with no reliable photo gets narrow searches ("<name> library") before the visual check."""
+        # Counted before the visual check, so one borderline photo must not hide a gap: fewer than 3 is a gap.
+        reliable = Counter(photo.category for photo, _ in self.scored.values() if photo.tier != "unconfirmed")
+        empty = [c for c in GAP_CATEGORIES if reliable[c] < GAP_MIN_RELIABLE]
+        if not empty:
+            return
+        try:
+            raws = await asyncio.wait_for(web_search.search_gaps(query, client, empty, GAP_FILL_S), GAP_FILL_S + 0.5)
+        except Exception:  # noqa: BLE001 — nothing extra found
+            return
+        logger.info("gap_fill %s categories=%s found=%d", self.qid, ",".join(empty), len(raws))
+        self._ingest(raws, client)
 
     async def _vision(self, client: httpx.AsyncClient) -> None:
         """OpenCLIP on the candidates most likely to be shown first, then Claude on the borderline ones; one refresh each."""

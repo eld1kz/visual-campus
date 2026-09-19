@@ -1,14 +1,14 @@
 """Short campus description from the Wikipedia article summary (REST API)."""
 
-import re
 from dataclasses import dataclass
 from urllib.parse import quote
 
 import httpx
 
+from app.services.text import split_sentences
+
 SUMMARY_URL = "https://{lang}.wikipedia.org/api/rest_v1/page/summary/{title}"
 MAX_SENTENCES = 4
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
 @dataclass
@@ -20,7 +20,7 @@ class WikiSummary:
 
 
 def first_sentences(text: str, limit: int = MAX_SENTENCES) -> str:
-    return " ".join(_SENTENCE_END.split(text.strip())[:limit])
+    return " ".join(split_sentences(text)[:limit])
 
 
 async def summary(client: httpx.AsyncClient, titles: dict[str, str], lang: str) -> WikiSummary | None:

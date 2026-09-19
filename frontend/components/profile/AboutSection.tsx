@@ -13,6 +13,7 @@ export function AboutSection({ profile, onOpenMap }: Props) {
   const { t, lang } = usePreferences();
   const { summary, university } = profile;
   const route = university.center_route;
+  const text = lang === "en" && summary.text_en ? summary.text_en : summary.text;
   const minutes = (m: number) =>
     m < 60 ? `~${m} ${t.minShort}` : `~${Math.floor(m / 60)} ${t.hourShort} ${m % 60} ${t.minShort}`;
   const rows = [
@@ -26,12 +27,23 @@ export function AboutSection({ profile, onOpenMap }: Props) {
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-7 pb-[34px] pt-[30px]">
       <div>
         <p className="mb-3 max-w-[64ch] text-[15px] leading-[1.7] text-pretty text-ink">
-          {lang === "en" && summary.text_en ? summary.text_en : summary.text}
-          {summary.citations.map((c) => (
-            <a key={c.n} href={c.url} target="_blank" rel="noreferrer" className="ml-px align-super text-xs">
-              [{c.n}]
-            </a>
-          ))}
+          {/* Inline [n] footnotes (Claude summary) become superscript links; a plain extract gets them appended. */}
+          {text.split(/(\[\d+\])/).map((part, i) => {
+            const cite = /^\[(\d+)\]$/.exec(part) && summary.citations.find((c) => `[${c.n}]` === part);
+            return cite ? (
+              <a key={i} href={cite.url} target="_blank" rel="noreferrer" className="ml-px align-super text-xs">
+                {part}
+              </a>
+            ) : (
+              <span key={i}>{part.replace(/\s+([.,;:])/g, "$1")}</span>
+            );
+          })}
+          {!/\[\d+\]/.test(text) &&
+            summary.citations.map((c) => (
+              <a key={c.n} href={c.url} target="_blank" rel="noreferrer" className="ml-px align-super text-xs">
+                [{c.n}]
+              </a>
+            ))}
         </p>
         <div className="flex flex-col gap-1">
           {summary.citations.map((c) => (

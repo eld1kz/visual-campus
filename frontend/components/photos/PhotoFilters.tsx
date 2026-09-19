@@ -15,46 +15,46 @@ type Props = {
   onToggleHistoric: () => void;
 };
 
-const segment = (on: boolean) =>
-  `rounded-full border-none px-[13px] py-1.5 text-[12.5px] ${on ? "bg-surface-2 font-medium text-ink" : "bg-transparent text-ink-3"}`;
+const toggle = (on: boolean) =>
+  `flex cursor-pointer items-center gap-[7px] whitespace-nowrap rounded-full px-3 py-1.5 text-xs ${
+    on ? "bg-accent-soft text-accent" : "bg-surface-2 text-ink-2"
+  }`;
 
 export function PhotoFilters({ tags, onToggleTag, sort, onSort, showUnconfirmed, onToggleUnconfirmed, showHistoric, onToggleHistoric }: Props) {
   const { t } = usePreferences();
 
   return (
-    <div className="mb-[18px] flex flex-wrap items-center gap-2.5">
+    <div className="mb-[18px] flex flex-wrap items-center gap-2">
       {FILTER_TAGS.map((tag, i) => {
         const on = tags.includes(tag);
         return (
           <button
             key={tag}
             onClick={() => onToggleTag(tag)}
-            className={`rounded-full border-none px-3.5 py-[7px] text-[13px] ${on ? "bg-accent-soft text-accent" : "bg-surface-2 text-ink-2"}`}
+            className={`rounded-full border-none px-3 py-1.5 text-xs ${on ? "bg-accent-soft text-accent" : "bg-surface-2 text-ink-2"}`}
           >
             {t.chips[i]}
           </button>
         );
       })}
-      <div className="ml-auto flex flex-wrap items-center gap-2">
-        <span className="text-xs text-ink-3">{t.sortBy}</span>
-        <div className="flex gap-0.5">
-          <button onClick={() => onSort("recommended")} className={segment(sort === "recommended")}>
-            {t.sortRecommended}
-          </button>
-          <button onClick={() => onSort("confidence")} className={segment(sort === "confidence")}>
-            {t.sortConf}
-          </button>
-          <button onClick={() => onSort("date")} className={segment(sort === "date")}>
-            {t.sortDate}
-          </button>
-        </div>
-        <label className="flex cursor-pointer items-center gap-[7px] rounded-full bg-surface-2 px-3 py-1.5 text-xs text-ink-2">
+      <div className="ml-auto flex items-center gap-2">
+        <select
+          value={sort}
+          onChange={(e) => onSort(e.target.value as PhotoSort)}
+          aria-label={t.sortBy}
+          className="cursor-pointer rounded-full border-none bg-surface-2 px-3 py-1.5 text-xs text-ink-2"
+        >
+          <option value="recommended">{t.sortRecommended}</option>
+          <option value="confidence">{t.sortConf}</option>
+          <option value="date">{t.sortDate}</option>
+        </select>
+        <label className={toggle(showUnconfirmed)}>
           <input type="checkbox" checked={showUnconfirmed} onChange={onToggleUnconfirmed} className="m-0 accent-accent" />
-          <span>{t.tierToggle}</span>
+          <span>{t.unconfirmedShort}</span>
         </label>
-        <label className="flex cursor-pointer items-center gap-[7px] rounded-full bg-surface-2 px-3 py-1.5 text-xs text-ink-2">
+        <label className={toggle(showHistoric)}>
           <input type="checkbox" checked={showHistoric} onChange={onToggleHistoric} className="m-0 accent-accent" />
-          <span>{t.historicToggle}</span>
+          <span>{t.historicShort}</span>
         </label>
       </div>
     </div>

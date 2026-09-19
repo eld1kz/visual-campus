@@ -13,11 +13,15 @@ type Props = {
 
 export function CategoryTabs({ photos, active, showUnconfirmed, onChange }: Props) {
   const { t } = usePreferences();
-  const tabs: PhotoTab[] = ["all", ...CATEGORIES];
+  const labels = new Map<PhotoTab, string>((["all", ...CATEGORIES] as PhotoTab[]).map((tab, i) => [tab, t.tabs[i]]));
+  // An empty category is hidden instead of showing "Libraries 0"; the active tab always stays.
+  const tabs = [...labels.keys()].filter(
+    (tab) => tab === "all" || tab === active || countInTab(photos, tab, showUnconfirmed) > 0,
+  );
 
   return (
     <div className="mb-4 flex flex-wrap gap-1.5 border-b border-line">
-      {tabs.map((tab, i) => {
+      {tabs.map((tab) => {
         const on = tab === active;
         return (
           <button
@@ -27,7 +31,7 @@ export function CategoryTabs({ photos, active, showUnconfirmed, onChange }: Prop
               on ? "border-accent font-medium text-ink" : "border-transparent text-ink-3"
             }`}
           >
-            {t.tabs[i]}
+            {labels.get(tab)}
             <span className="font-mono text-[11px] text-ink-3">{countInTab(photos, tab, showUnconfirmed)}</span>
           </button>
         );

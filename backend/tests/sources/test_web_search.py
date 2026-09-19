@@ -50,3 +50,22 @@ def test_collect_skips_without_key_and_reads_brave_results(monkeypatch):
     assert result.status == "ok"
     assert [raw.id for raw in result.images] == [web_search.parse_result(BRAVE_ITEM).id]
     assert seen and all('"Korea University"' in q for q in seen)
+
+
+def test_search_gaps_runs_narrow_topics_and_ignores_failures(monkeypatch):
+    monkeypatch.setattr(web_search, "settings", dataclasses.replace(web_search.settings, brave_search_api_key="k"))
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params["q"])
+        if "reading room" in request.url.params["q"]:
+            return httpx.Response(500)
+        return httpx.Response(200, json={"results": [BRAVE_ITEM]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await web_search.search_gaps(QUERY, client, ["libraries"], 2.0)
+
+    raws = asyncio.run(run())
+    assert len(seen) == 2 and all("library" in q for q in seen)
+    assert len(raws) == 1  # the failing topic is skipped, not fatal

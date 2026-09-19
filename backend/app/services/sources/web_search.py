@@ -76,6 +76,46 @@ def parse_result(item: dict) -> RawImage | None:
     )
 
 
+# Narrow searches for a category that ended up with no reliable photo (see ProfileBuild._fill_gaps).
+GAP_TOPICS: dict[str, list[str]] = {
+    "libraries": ["library", "library reading room"],
+    "dorms": ["dormitory", "student housing residence hall"],
+    "classrooms": ["lecture hall classroom", "laboratory building"],
+}
+
+
+async def _search(client: httpx.AsyncClient, query: SourceQuery, topic: str, timeout_s: float) -> list[RawImage]:
+    resp = await client.get(
+        BRAVE_IMAGES,
+        headers={
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+            "X-Subscription-Token": settings.brave_search_api_key,
+        },
+        params={
+            "q": _query_text(query, topic),
+            "count": COUNT_PER_QUERY,
+            "country": "ALL",
+            "search_lang": "en",
+            "safesearch": "strict",
+            "spellcheck": 1,
+        },
+        timeout=timeout_s,
+    )
+    resp.raise_for_status()
+    return [raw for item in resp.json().get("results", []) if (raw := parse_result(item))]
+
+
+async def search_gaps(query: SourceQuery, client: httpx.AsyncClient, categories: list[str],
+                      timeout_s: float) -> list[RawImage]:
+    """Targeted image searches for empty categories; errors just mean nothing extra was found."""
+    if not settings.brave_search_api_key or not query.names:
+        return []
+    topics = [topic for category in categories for topic in GAP_TOPICS.get(category, [])]
+    found = await asyncio.gather(*(_search(client, query, t, timeout_s) for t in topics), return_exceptions=True)
+    return [raw for batch in found if isinstance(batch, list) for raw in batch]
+
+
 async def collect(query: SourceQuery, client: httpx.AsyncClient, on_batch: OnBatch | None = None) -> SourceResult:
     async def work(acc: Batches, deadline: Deadline) -> str | None:
         if not settings.brave_search_api_key:
@@ -84,27 +124,8 @@ async def collect(query: SourceQuery, client: httpx.AsyncClient, on_batch: OnBat
             raise Skip("no university name for web search")
 
         async def one(topic: str) -> None:
-            resp = await client.get(
-                BRAVE_IMAGES,
-                headers={
-                    "Accept": "application/json",
-                    "Accept-Encoding": "gzip",
-                    "X-Subscription-Token": settings.brave_search_api_key,
-                },
-                params={
-                    "q": _query_text(query, topic),
-                    "count": COUNT_PER_QUERY,
-                    "country": "ALL",
-                    "search_lang": "en",
-                    "safesearch": "strict",
-                    "spellcheck": 1,
-                },
-                timeout=deadline.left(),
-            )
-            resp.raise_for_status()
-            for item in resp.json().get("results", []):
-                if raw := parse_result(item):
-                    acc[raw.id] = raw
+            for raw in await _search(client, query, topic, deadline.left()):
+                acc[raw.id] = raw
             acc.flush()
 
         await asyncio.gather(*(one(topic) for topic in TOPICS[:MAX_QUERIES]))

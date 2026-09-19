@@ -56,3 +56,21 @@ def test_is_valid_requires_a_footnote_per_sentence():
 
 def test_first_sentences_trims_long_extracts():
     assert first_sentences("One. Two! Three? Four. Five.", limit=3) == "One. Two! Three?"
+
+
+def test_initials_do_not_end_a_sentence():
+    from app.services.text import split_sentences
+    from app.services.wikipedia import first_sentences
+
+    text = "Назарбаев Университет — вуз, открытый по инициативе Н. А. Назарбаева. Находится в г. Астана. Кампус большой."
+    assert split_sentences(text)[0].endswith("Н. А. Назарбаева.")
+    assert not first_sentences(text, 1).endswith(" Н.")
+
+
+def test_footnote_validation_accepts_initials_and_footnotes_after_the_full_stop():
+    from app.models import Citation
+    from app.services.summary import is_valid
+
+    cites = [Citation(n=1, title="W", url="https://w")]
+    assert is_valid("Вуз открыт по инициативе Н. А. Назарбаева [1]. Кампус большой. [1]", cites)
+    assert not is_valid("Вуз открыт [1]. Кампус большой.", cites)

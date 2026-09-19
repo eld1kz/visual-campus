@@ -14,6 +14,7 @@ import httpx
 
 from app.config import settings
 from app.models import Citation, Summary
+from app.services.text import split_sentences
 
 logger = logging.getLogger("visual_campus.summary")
 
@@ -54,9 +55,10 @@ def build_prompt(texts: list[SourceText], lang: str) -> str:
     language = "Russian" if lang == "ru" else "English"
     sources = "\n\n".join(f"[{i}] {t.title}\n{t.text[:MAX_TEXT_CHARS]}" for i, t in enumerate(texts, start=1))
     return (
-        f"Write 3-5 sentences in {language} about the university campus using ONLY the numbered sources below. "
-        "End every sentence with the footnote [n] of the source it relies on. Do not add facts that are not "
-        "in the sources. If the sources say nothing about the campus, answer with an empty string.\n\n" + sources
+        f"Write 3-5 sentences in {language} introducing the university to a prospective student: what it is, "
+        "where it is, and anything the sources say about its campus, buildings or student life. Use ONLY the "
+        "numbered sources below and do not add facts that are not in them. End every sentence with the footnote "
+        "[n] of the source it relies on. Answer with the sentences only.\n\n" + sources
     )
 
 
@@ -66,7 +68,7 @@ def is_valid(text: str, citations: list[Citation]) -> bool:
     used = {int(n) for n in _FOOTNOTE.findall(text)}
     if not used or not used <= known:
         return False
-    sentences = [s for s in re.split(r"(?<=[.!?])\s+(?=[^\[])", text.strip()) if s.strip()]
+    sentences = split_sentences(text)
     return all(_FOOTNOTE.search(s) for s in sentences)
 
 

@@ -17,7 +17,8 @@ export function ProfileHeader({ university: u, generatedInMs, stats, aside }: Pr
     .filter(Boolean)
     .join(", ");
   const statItems = [
-    { value: stats.photos, label: t.statPhotos, color: "var(--ink)" },
+    // Shown photos = verified + likely: the same number as the "All" tab (hidden ones are counted separately).
+    { value: stats.verified + stats.likely, label: t.statPhotos, color: "var(--ink)" },
     { value: stats.verified, label: t.statVerified, color: "var(--ok)" },
     { value: stats.likely, label: t.statLikely, color: "var(--warn)" },
     { value: stats.hidden, label: t.statHidden, color: "var(--mute)" },
